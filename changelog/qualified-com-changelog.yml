@@ -1,0 +1,58 @@
+generated: '2026-08-26'
+method: searched
+source: https://www.qualified.com/plus/blog
+docs: https://www.qualified.com/plus/blog
+note: >-
+  Qualified does not publish a dated per-change changelog or release-notes feed for the
+  Enterprise API. What it publishes instead is a quarterly PRODUCT release announcement
+  posted as a blog article under /plus/articles/, named by season and year. Those are
+  platform release notes, not API change entries — nothing in the Enterprise API reference
+  carries a per-version change history, and the reference states only a single date,
+  "Last updated: August 9, 2026". The entries below are the release announcements found
+  in the sitemap; publication dates are injected client-side on those pages, so only the
+  Summer '26 date could be read and the rest are recorded as null rather than guessed.
+scheme: named seasonal releases (Season + two-digit year)
+cadence: quarterly
+api_changelog_published: false
+api_reference_last_updated: '2026-08-09'
+current_release: Summer '26
+entries:
+- version: Summer '26
+  date: '2026-08-20'
+  url: https://www.qualified.com/plus/articles/the-summer-26-release-is-here
+  breaking: false
+  highlights:
+  - Custom Avatars — upload a static image and the platform renders it as a dynamic agent
+  - Full Screen Meeting Booker overlaid during a conversation
+  - Agent Modality Toggle — video, voice, or text, with per-experience overrides
+  - 'Customizable Agent Launcher — adds new client-side calls: startCall and startChat'
+  - Customizable Pounce Messages (initial, scroll, idle follow-up)
+  - Qualified field references in conversation guides
+  - Jump Steps in Goals; Route for Pounce + Branch Steps
+  - Email quality, unsubscribe enhancements, Domain Warm-Up, Always Run Email Experiences
+  - Salesforce Data 360 integration; Lead Spotlight Salesforce iFrame
+  - Pre-Routing Questions, Meeting Link Themes, multiple admin edit
+  api_relevant:
+  - >-
+      startCall and startChat added to the client-side messenger library — a client-side
+      surface change, not an Enterprise API change.
+- version: Spring '26
+  date: null
+  url: https://www.qualified.com/plus/articles/the-spring-26-release-is-here
+  breaking: null
+- version: Winter '26
+  date: null
+  url: https://www.qualified.com/sign-in-page-promotionals/the-qualified-winter-26-release-is-here
+  breaking: null
+- version: Autumn '25
+  date: null
+  url: https://www.qualified.com/plus/articles/the-autumn-25-release-is-here
+  breaking: null
+- version: Spring '25
+  date: null
+  url: https://www.qualified.com/plus/articles/the-spring-25-release-is-here
+  breaking: null
+- version: Winter '25
+  date: null
+  url: https://www.qualified.com/plus/articles/the-winter-25-release-is-here
+  breaking: null

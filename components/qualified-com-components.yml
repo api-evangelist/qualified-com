@@ -1,0 +1,62 @@
+generated: '2026-08-26'
+method: searched
+source: https://www.qualified.com/plus/articles/the-summer-26-release-is-here
+also_source: https://www.qualified.com/api
+note: >-
+  Qualified's primary integration surface for most customers is not the Enterprise API — it is
+  a client-side embed. The Messenger loader runs on the customer's own website and is what
+  actually puts Piper in front of a buyer. Recorded here as a distinct surface from the SDKs
+  the company does not publish and from the server-side API it does.
+families:
+- name: Qualified Messenger
+  loader: https://d1418wpyaxxvno.cloudfront.net/production/qlib-release-v1.02.min.js
+  loader_global: qualified
+  delivery: script tag, CDN, pinned version in the filename
+  description: >-
+    The embeddable agent surface. Renders Piper's conversations in video, voice or text on the
+    customer's website, serves offers, and books meetings inline.
+  client_calls:
+  - name: startCall
+    added_in: Summer '26
+    description: >-
+      Programmatically start an agent call from the host page, passing context through. Added
+      with the Customizable Agent Launcher so a customer can define where and how the agent
+      triggers rather than accepting the default launcher.
+  - name: startChat
+    added_in: Summer '26
+    description: Programmatically start an agent chat from the host page, passing context through.
+  note: >-
+    Recorded from the Summer '26 release announcement, which names both calls. Full parameter
+    signatures are documented inside Qualified University and the in-app Agent Studio rather
+    than in the public API reference, so they are not reproduced here.
+- name: Meeting surfaces
+  description: Buyer-facing scheduling surfaces rendered by the platform.
+  components:
+  - name: Full Screen Meeting Booker
+    added_in: Summer '26
+    description: Overlays the scheduling interface on the website during a conversation.
+  - name: Meeting Links
+    description: Direct and routed meeting links, usable outside a website session.
+  - name: Meeting Link Themes
+    added_in: Summer '26
+    description: Per-meeting-type visual theming.
+  - name: Pre-Routing Questions
+    added_in: Summer '26
+    description: Qualifying questions asked during booking to drive routing and calendar assignment.
+- name: Manually triggered experiences
+  description: Host-page elements that hand control to the agent on a user action.
+  components:
+  - name: Smart Forms
+    docs: https://university.qualified.com/
+  - name: Smart Buttons
+    docs: https://university.qualified.com/
+- name: Embedded in third-party consoles
+  components:
+  - name: Lead Spotlight — Salesforce iFrame
+    added_in: Summer '26
+    host: Salesforce contact and lead record pages
+    description: Embeds an agent context snapshot directly inside the Salesforce record page.
+  - name: Piper for Slack
+    host: Slack
+    url: https://www.qualified.com/integrations/slack
+    description: Two-way collaboration with the agent inside a Slack channel.

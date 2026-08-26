@@ -1,0 +1,181 @@
+generated: '2026-08-26'
+method: derived
+source: openapi/qualified-com-enterprise-api-openapi.json
+enriched_from: https://app.qualified.com/docs/api
+api: qualified-com-enterprise-api
+summary: >-
+  Two identity keys, not one. Sessions, conversations and meetings are keyed on the VISITOR
+  (a browser, identified by an immutable visitorId assigned before the person is known).
+  Emails are keyed on the LEAD (the person, keyed on email address). Lead.visitorIds is the
+  only bridge between the two halves of the graph, and joining across it is the single design
+  decision every integrator has to get right. Messages have no identity key at all and resolve
+  only through their conversationId.
+entities:
+- name: Lead
+  description: A person Qualified has identified, rolling up website activity plus CRM records.
+  id: id
+  natural_key: email
+  readable: true
+  writable: true
+  operations: [listLeads, getLead, upsertLead]
+  fields: [id, email, fields, createdAt, updatedAt, visitorIds, salesforceLeadId, salesforceContactId, pardotProspectId, marketoLeadId, hubspotContactId, eloquaContactId]
+  note: Only leads WITH an email address are returned. Custom values live in the `fields` map.
+- name: Company
+  description: An account, keyed on domain. Write-only.
+  id: id
+  natural_key: domain
+  readable: false
+  writable: true
+  operations: [upsertCompany]
+  fields: [id, domain, name, fields, createdAt, updatedAt]
+  note: >-
+    "Companies cannot be read back." A write sets account-level field values that every lead
+    on that domain inherits, advancing updatedAt on all of them.
+- name: Visitor
+  description: A single browser or device. Not a top-level resource; embedded on Session.
+  id: visitorId
+  readable: embedded-only
+  writable: false
+  note: >-
+    Has no endpoint of its own. Appears as Session.visitor (current values, resolved at request
+    time, null when unloadable) and as the visitorId carried by sessions, conversations and
+    meetings. This is the join key for the whole activity half of the graph.
+- name: Session
+  description: A website session with page views.
+  id: id
+  operations: [listSessions, getSession]
+  fields: [id, createdAt, endedAt, visitorId, visitor, userAgent, conversationIds, pageViews, meetingIds]
+- name: Conversation
+  description: An engaged chat conversation where the visitor exchanged messages.
+  id: id
+  operations: [listConversations, getConversation]
+  fields: [id, sessionId, meetingIds, experienceName, createdAt, endedAt, userId, visitorId]
+- name: Message
+  description: An individual message within a conversation.
+  id: id
+  operations: [listMessages, getMessage, listConversationMessages]
+  fields: [id, type, text, createdAt, senderType, senderName, conversationId]
+  note: 'senderType is one of user, visitor, experience, ai_profile. Immutable once sent.'
+- name: Meeting
+  description: A meeting offered or booked with a visitor.
+  id: id
+  operations: [listMeetings, getMeeting, cancelMeeting]
+  fields: [id, sessionId, conversationId, visitorId, attendees, meetingTypeName, createdAt, updatedAt, status, channel]
+  note: >-
+    cancelMeeting is keyed on the SALESFORCE Event ID, not on Meeting.id — the one place the
+    contract requires an identifier from another vendor's system.
+- name: Email
+  description: Outbound email sent from Qualified, with engagement timestamps.
+  id: id
+  operations: [listEmails, getEmail]
+  fields: [id, parentEmailId, subject, provider, status, leadId, campaignName, senderEmail, recipientEmail, body, mailingType, sentAt, openedAt, repliedAt, clickedAt, bouncedAt, bounceType, createdAt, updatedAt]
+- name: BulkJob
+  description: An asynchronous batch of lead/company writes.
+  id: id
+  operations: [createBulkJob, getBulkJob]
+  fields: [id, status, totalRecords, processedRecords, failedRecords, result, createdAt, updatedAt]
+- name: Field
+  description: A custom field definition on leads or companies.
+  id: id
+  operations: [listLeadFields, listCompanyFields]
+  fields: [id, label, type, name, options, createdAt, updatedAt]
+- name: GdprDeletionRequest
+  description: A batch of email addresses submitted for erasure.
+  operations: [createGdprDeletionRequest]
+  note: Write-only, irreversible, max 5,000 addresses per request.
+relationships:
+- from: Lead
+  to: Visitor
+  type: has_many
+  via: visitorIds
+  note: The bridge between the person-keyed and browser-keyed halves of the graph.
+- from: Session
+  to: Visitor
+  type: belongs_to
+  via: visitorId
+- from: Session
+  to: Visitor
+  type: has_one
+  via: visitor
+  note: Embedded current-state object, not a snapshot.
+- from: Session
+  to: Conversation
+  type: has_many
+  via: conversationIds
+- from: Session
+  to: Meeting
+  type: has_many
+  via: meetingIds
+- from: Conversation
+  to: Session
+  type: belongs_to
+  via: sessionId
+- from: Conversation
+  to: Visitor
+  type: belongs_to
+  via: visitorId
+- from: Conversation
+  to: Meeting
+  type: has_many
+  via: meetingIds
+- from: Message
+  to: Conversation
+  type: belongs_to
+  via: conversationId
+- from: Meeting
+  to: Session
+  type: belongs_to
+  via: sessionId
+- from: Meeting
+  to: Conversation
+  type: belongs_to
+  via: conversationId
+- from: Meeting
+  to: Visitor
+  type: belongs_to
+  via: visitorId
+- from: Email
+  to: Lead
+  type: belongs_to
+  via: leadId
+  note: Null when the mailing cannot be resolved to a lead.
+- from: Email
+  to: Email
+  type: belongs_to
+  via: parentEmailId
+  note: Self-reference, threading a follow-up to its parent mailing.
+- from: Company
+  to: Lead
+  type: has_many
+  via: domain
+  note: >-
+    Implicit, not an id reference. Every lead whose email domain matches inherits the
+    company's account-level field values.
+- from: Lead
+  to: Field
+  type: has_many
+  via: fields
+- from: Company
+  to: Field
+  type: has_many
+  via: fields
+external_identifiers:
+  note: >-
+    Lead carries a foreign id per connected system, which is how a warehouse joins Qualified
+    activity back to the CRM/MAP record without a separate matching step.
+  fields:
+  - salesforceLeadId
+  - salesforceContactId
+  - salesforceAccountId (via Company/CRM sync, not returned on Lead)
+  - pardotProspectId
+  - marketoLeadId
+  - hubspotContactId
+  - eloquaContactId
+read_write_asymmetry:
+  read_only: [Session, Conversation, Message, Email, BulkJob, Field]
+  write_only: [Company, GdprDeletionRequest]
+  read_write: [Lead]
+  reversal_only: [Meeting]
+  note: >-
+    Company is the notable asymmetry: writable, high blast radius, and unreadable. A client
+    cannot fetch the current account-level values before overwriting them.

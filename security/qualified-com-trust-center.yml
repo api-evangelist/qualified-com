@@ -1,0 +1,84 @@
+generated: '2026-08-26'
+method: searched
+source: https://www.qualified.com/trust
+trust_center_url: https://www.qualified.com/trust
+alternate_url: https://trust.qualified.com/
+note: >-
+  trust.qualified.com resolves and returns HTTP 200 but serves a 5.6KB client-rendered
+  shell with no readable content; https://www.qualified.com/trust is the substantive page
+  and is what is recorded here. Qualified also operates a gated Trust Center from which
+  full policies, the SOC 2 Type II report and the penetration-test summary are released to
+  customers and prospects under NDA.
+certifications:
+- name: SOC 2 Type II
+  status: audited annually
+  public_report: false
+  access: Contact your Qualified Representative to request the current report.
+- name: EU-US Privacy Shield
+  status: historical
+  note: >-
+    Qualified was previously certified; the framework was invalidated by the CJEU in
+    Schrems II (16 July 2020) and Qualified now relies on Standard Contractual Clauses.
+compliance_programs:
+- name: GDPR
+  url: https://www.qualified.com/legal/gdpr
+  contact: privacy@qualified.com
+- name: CCPA
+  role: Service Provider
+  note: Qualified states it does not sell customer personal information. California Annex in the DPA.
+- name: Standard Contractual Clauses
+  note: Used for transfers of personal data into the U.S., covering Qualified and all sub-processors.
+- name: Data Processing Agreement
+  url: https://www.qualified.com/legal/data-processing-addendum
+- name: Sub-processor list
+  url: https://www.qualified.com/legal/subprocessors
+security_program:
+  hosting: Amazon Web Services
+  access_control: least privilege, regular access reviews, SSO and MFA
+  encryption: encryption of data in motion over public networks
+  ddos_mitigation: true
+  intrusion_detection: IDS + SIEM on the corporate network, plus AWS controls in production
+  penetration_testing:
+    frequency: annually at minimum
+    type: black box
+    conducted_by: independent third-party agency
+    method: >-
+      Qualified provides the agency an isolated clone of Qualified.com and a high-level
+      application architecture diagram. Exploited vulnerabilities are tracked, assigned for
+      remediation, and retested.
+    summary_availability: A summary of the most recent test is available in the gated Trust Center.
+  business_continuity:
+    bcp_tested: annually
+    owner: CTO
+    postmortem_required: true
+  ai_governance:
+    framework: Qualified AI Trust Framework
+    principles: [Transparency, Fairness, Accountability, Privacy]
+    note: >-
+      Named governance body reviews and approves all AI projects. Relevant because the
+      product is an autonomous AI agent acting on customer buyers.
+published_policies:
+- Acceptable Use Policy
+- Asset Management Policy
+- Backup Policy
+- Change Management & SDLC Policy
+- Code of Conduct
+- Cryptography Policy
+- Data Management Policy
+- Disaster Recovery Plan
+- Generative AI in the Workplace Policy
+- Incident Response Plan
+- Passwords Policy
+- Physical Security Policy
+- Responsible Disclosure Policy
+- Risk Assessment Policy
+- System Access Control Policy
+- Vendor Management Policy
+- Vulnerability Management Policy
+policy_access: >-
+  Policy NAMES are public on the trust page; the policy TEXT is released to prospective and
+  existing customers under a signed NDA through the gated Trust Center.
+contacts:
+  security: security@qualified.com
+  privacy: privacy@qualified.com
+status_page: https://status.qualified.com/

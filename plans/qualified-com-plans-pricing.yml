@@ -1,0 +1,66 @@
+generated: '2026-08-26'
+method: searched
+source: https://www.qualified.com/pricing
+docs: https://www.qualified.com/pricing
+currency: null
+pricing_model: contact-sales
+plan_count: 3
+note: >-
+  Qualified publishes three named Agentic Marketing Platform tiers with a feature
+  matrix but NO prices, quotas, or overage rates. Every tier ends in "Schedule a
+  demo"; the page states "We'll build a plan that's perfectly customized for you
+  and your pipeline needs." The Enterprise API this repo documents is not available
+  on the entry tier — "Enterprise-Grade APIs" is first listed as an Enterprise-tier
+  addition, so API access is a commercial gate, not a self-serve signup.
+plans:
+- name: Premier
+  price: null
+  currency: null
+  billing_period: null
+  quota: null
+  overage: null
+  api_access: false
+  features:
+  - Conversations using video, voice, or text
+  - Schedule sales meetings
+  - Send personalized AI-generated emails
+  - Nurture buyers with unique marketing offers
+  - Collaborate with teammates in Slack
+  - Enterprise single sign-on
+  - Multi-language agent
+- name: Enterprise
+  price: null
+  currency: null
+  billing_period: null
+  quota: null
+  overage: null
+  api_access: true
+  features:
+  - Everything in Premier
+  - Enterprise-Grade APIs
+  - Custom cookie and data retention policies
+  - Third party research intent signals
+  - Salesforce Sandbox support
+  - Multiple websites and brands
+- name: Ultimate
+  price: null
+  currency: null
+  billing_period: null
+  quota: null
+  overage: null
+  api_access: true
+  features:
+  - Everything in Enterprise
+  - Multiple agent profiles
+  - Multiple production instances
+  - High-volume websites
+  - High-volume contact databases
+included_in_all_plans:
+- AI SDR Agent Studio
+- Agent Spotlight
+- Account segmentation with waterfall enrichment
+- Integrations with Salesforce CRM and 20+ leading go-to-market systems
+- Qualified reporting and analytics
+- Salesforce reporting and analytics
+- Advanced conversation, email, and meeting routing
+- Automated workflow actions and notifications in third party systems

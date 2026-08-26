@@ -1,0 +1,216 @@
+generated: '2026-08-26'
+method: searched
+source: https://app.qualified.com/docs/api
+docs: https://app.qualified.com/docs/api
+derived_from: openapi/qualified-com-enterprise-api-openapi.json
+api: qualified-com-enterprise-api
+
+auth:
+  style: bearer token in Authorization header
+  scopes: named :view / :manage scopes minted onto the key
+  artifact: authentication/qualified-com-authentication.yml
+
+case_convention:
+  request_parameters: snake_case
+  response_fields: camelCase
+  exception: >-
+    The two legacy /v1 reporting endpoints return snake_case response fields, predating
+    the camelCase convention.
+
+pagination:
+  style: cursor
+  forward_param: after
+  backward_param: before
+  page_size: 1000
+  page_size_adjustable: false
+  order: newest-first, stable descending
+  sort_keys:
+    leads: record id
+    emails: record id
+    meetings: record id
+    sessions: endedAt
+    conversations: parent session endedAt
+    messages: parent session endedAt
+  response_block: pageInfo
+  response_fields:
+  - hasNextPage
+  - hasPreviousPage
+  - startCursor
+  - endCursor
+  loop_rule: >-
+    Page forward by passing endCursor as `after` until hasNextPage is false. Drive the
+    loop off hasNextPage, never off the row count — a page can come back smaller than
+    the maximum. On the activity endpoints (sessions, conversations, messages, meetings)
+    hasPreviousPage reports only that the current page is non-empty, so it is not a
+    reliable backward signal.
+  cursor_opacity: >-
+    Cursors are opaque and anchored on a record id, so records arriving mid-sync do not
+    shift the page. A cursor whose record is no longer readable is rejected with 400 —
+    restart the window rather than retrying the cursor.
+  legacy_exception: >-
+    /v1/bot_conversations and /v1/rep_conversations page with starting_after/limit and
+    a `meta` block instead of cursor pageInfo.
+
+filtering_and_sync:
+  model: pull / incremental delta sync
+  timestamp_semantics: UTC unless an offset is supplied; a bare date means midnight UTC
+  response_timestamps: ISO-8601 UTC (e.g. 2026-06-12T15:04:05Z)
+  windows:
+  - resources: [leads, meetings, emails]
+    params: [updated_after, updated_before, created_after, created_before]
+  - resources: [sessions, conversations]
+    params: [ended_after, ended_before]
+    note: created_* is not offered; both become available only once the session ends.
+  - resources: [messages]
+    params: [created_after, created_before]
+    note: Messages never change, so updated_* behaves identically to created_*.
+  availability_hold:
+  - resources: [sessions, conversations, messages]
+    hold: 30 minutes after the session ends
+  - resources: [leads, emails]
+    hold: 30 minutes after creation
+  - resources: [meetings]
+    hold: 24 hours after creation
+  hold_enforcement: >-
+    A bound that falls inside the hold is rejected with 400 rather than returning empty.
+    Reads by id are always current.
+
+expansion:
+  supported: false
+  note: >-
+    No field-expansion or sparse-fieldset parameters are published. Sessions embed a
+    `visitor` object holding that visitor's current field answers and CRM record ids;
+    it resolves at request time and is not a snapshot as of the session.
+
+metadata:
+  custom_fields: true
+  discovery_endpoints:
+  - GET /v2/leads/fields (listLeadFields)
+  - GET /v2/companies/fields (listCompanyFields)
+  note: >-
+    Both field-listing endpoints require only a valid token, no scope, so a client can
+    discover the tenant's custom field vocabulary before it holds any read scope.
+
+request_id_tracing:
+  supported: false
+  note: No request-id or correlation-id response header is documented.
+
+versioning:
+  scheme: path prefix
+  current: /v2
+  also_served: /v1 (undocumented Enterprise endpoints plus the two legacy reporting endpoints)
+  compatibility_contract: >-
+    New fields and endpoints may be added over time, so clients must parse leniently and
+    ignore unrecognized fields. Removing a field, changing a field's type, or changing the
+    format of an id or cursor is defined as a breaking change and Qualified states it will
+    be communicated in advance.
+  artifact: lifecycle/qualified-com-lifecycle.yml
+
+error_envelope:
+  format: vendor-json
+  rfc9457: false
+  note: >-
+    Shapes are deliberately inconsistent across statuses and the reference says so:
+    "read `error`, `code`, and `message` defensively rather than branching on one key."
+  shapes:
+  - '{"error": "..."}'
+  - '{"code": "...", "message": "..."}'
+  - '{"error": "...", "details": {"failed_field": "..."}}'
+  - '{"message": "..."}'
+  artifact: errors/qualified-com-problem-types.yml
+
+rate_limit_signaling:
+  headers: [RateLimit-Limit, RateLimit-Remaining, RateLimit-Reset, Retry-After]
+  status: 429
+  artifact: rate-limits/qualified-com-rate-limits.yml
+
+idempotency:
+  supported: false
+  header: null
+  scope: null
+  retention: null
+  note: >-
+    No Idempotency-Key header or equivalent is published, and the reference never uses
+    the word. What exists instead is natural-key upsert: POST /v2/leads and POST /v2/companies
+    are documented as "Create or update", keyed on email address and on domain respectively,
+    so replaying the same body converges rather than duplicating. That is safe for the two
+    upserts and for the read surface, but it is NOT a general idempotency guarantee — a
+    retried POST /v2/bulk can resubmit a batch, and DELETE /v2/meetings on an already
+    cancelled meeting returns 422 rather than a no-op success. No `Idempotency` pointer is
+    emitted in apis.yml because the provider does not ship the mechanism.
+
+dry_run_mode:
+  supported: false
+  note: No preview/validate-only mode is published for any write endpoint.
+
+reversibility:
+  grade: documented
+  note: >-
+    One true reversal operation exists and is fully documented, but Qualified publishes no
+    time window for it, and the other destructive path is explicitly irreversible. Graded
+    `documented` rather than `verified` for that reason. No window is asserted here because
+    the reference states none.
+  surfaces:
+  - operation: cancelMeeting
+    method: DELETE
+    path: /v2/meetings
+    write_class: reversal
+    reverses: a booked meeting
+    key: salesforce_event_id (Salesforce Event ID)
+    window: null
+    window_source: null
+    already_reversed_behavior: 'returns 422 — "The meeting was already canceled"'
+    note: >-
+      Cancellation is the reversal of a booking. The reference does not state any deadline
+      before which a meeting must be cancelled, so no window is recorded. Requires the
+      meetings API to be enabled for the team and the meeting:manage scope.
+  - operation: upsertLead
+    method: POST
+    path: /v2/leads
+    write_class: upsert
+    reversal_operation: null
+    window: null
+    note: >-
+      No delete or restore endpoint for leads is published. A field value can be corrected
+      by upserting the prior value, provided the caller retained it — Qualified does not
+      return the pre-write state, so the caller is responsible for keeping its own before-image.
+  - operation: upsertCompany
+    method: POST
+    path: /v2/companies
+    write_class: upsert
+    reversal_operation: null
+    window: null
+    blast_radius: >-
+      A single write to the Companies endpoint sets account-level field values that EVERY
+      lead on that domain inherits, and advances updatedAt on every one of them. Companies
+      also cannot be read back, so there is no way to fetch the current value before
+      overwriting it. This is the highest-consequence write on the API and the one with the
+      least reversal support.
+  - operation: createGdprDeletionRequest
+    method: POST
+    path: /v2/gdpr_deletion_requests
+    write_class: destructive
+    reversal_operation: null
+    window: null
+    note: >-
+      Irreversible by design — the point of the endpoint is erasure. Accepts up to 5,000
+      email addresses per request. No undo, no grace period, and no restore path is
+      published. Treat as terminal.
+  - operation: createBulkJob
+    method: POST
+    path: /v2/bulk
+    write_class: batch-upsert
+    reversal_operation: null
+    window: null
+    note: >-
+      Returns 202 to confirm acceptance; individual items can still fail. Per-item outcomes
+      are read from failedRecords and the errors on each entry of the job's result array.
+      There is no batch-level rollback.
+
+cross_links:
+  errors: errors/qualified-com-problem-types.yml
+  lifecycle: lifecycle/qualified-com-lifecycle.yml
+  authentication: authentication/qualified-com-authentication.yml
+  scopes: scopes/qualified-com-scopes.yml
+  rate_limits: rate-limits/qualified-com-rate-limits.yml
+  data_model: data-model/qualified-com-data-model.yml

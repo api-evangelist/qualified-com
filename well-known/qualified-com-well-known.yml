@@ -1,0 +1,66 @@
+generated: '2026-08-26'
+method: probed
+source: live GET probes of /.well-known/* on every Qualified host
+note: >-
+  Every /.well-known/ path was probed on all three Qualified hosts on 2026-08-26 and
+  none returned a document. www.qualified.com answers 404 from Webflow, app.qualified.com
+  answers 401 (application/json) because the whole app host is session-gated, and
+  api.qualified.com answers its standard JSON 404. No WellKnown or SecurityTxt pointer
+  is emitted in apis.yml because nothing is served — this file records a verified
+  absence, not a presence.
+hosts:
+- host: www.qualified.com
+  documents:
+  - path: /.well-known/security.txt
+    status: 404
+  - path: /.well-known/openid-configuration
+    status: 404
+  - path: /.well-known/oauth-authorization-server
+    status: 404
+  - path: /.well-known/oauth-protected-resource
+    status: 404
+  - path: /.well-known/api-catalog
+    status: 404
+  - path: /.well-known/ai-plugin.json
+    status: 404
+  - path: /.well-known/agent-card.json
+    status: 404
+  - path: /.well-known/agent.json
+    status: 404
+- host: app.qualified.com
+  documents:
+  - path: /.well-known/security.txt
+    status: 403
+    note: Cloudflare bot challenge, not a document
+  - path: /.well-known/openid-configuration
+    status: 401
+  - path: /.well-known/oauth-authorization-server
+    status: 401
+  - path: /.well-known/oauth-protected-resource
+    status: 401
+  - path: /.well-known/api-catalog
+    status: 401
+  - path: /.well-known/ai-plugin.json
+    status: 401
+  - path: /.well-known/agent-card.json
+    status: 401
+  - path: /.well-known/agent.json
+    status: 401
+- host: api.qualified.com
+  documents:
+  - path: /.well-known/security.txt
+    status: 404
+  - path: /.well-known/openid-configuration
+    status: 404
+  - path: /.well-known/oauth-authorization-server
+    status: 404
+  - path: /.well-known/oauth-protected-resource
+    status: 404
+  - path: /.well-known/api-catalog
+    status: 404
+  - path: /.well-known/ai-plugin.json
+    status: 404
+  - path: /.well-known/agent-card.json
+    status: 404
+  - path: /.well-known/agent.json
+    status: 404

@@ -1,0 +1,52 @@
+generated: '2026-08-26'
+method: searched
+source: >-
+  npm registry search, PyPI, and the Qualified site. Searched 2026-08-26.
+sdk_count: 0
+official_sdk_count: 0
+note: >-
+  Qualified publishes NO first-party API client library in any package registry. Searched
+  npmjs (registry search for "qualified.com" returned zero packages; "qualified api sdk"
+  returned only unrelated third-party packages), PyPI (pypi.org/pypi/qualified is Timothy
+  Crosley's unrelated "For when invalid data is the default" library at 0.0.1, NOT Qualified),
+  and GitHub (no qualified / qualifiedcom / qualified-com organization exists). The Enterprise
+  API is consumed with plain HTTP; the published reference shows curl and nothing else. No
+  SDKs pointer is emitted in apis.yml because there is no SDK.
+packages:
+- name: qlib
+  official: true
+  kind: web-embed
+  registry: cdn
+  url: https://d1418wpyaxxvno.cloudfront.net/production/qlib-release-v1.02.min.js
+  version: '1.02'
+  version_source: >-
+    Read from the pinned filename (qlib-release-v1.02.min.js) as loaded by
+    https://www.qualified.com/api on 2026-08-26. There is no registry metadata endpoint for a
+    CDN-distributed build.
+  published: null
+  published_note: >-
+    No registry metadata endpoint exists for this distribution, so no publication date can be
+    read. Checked, nothing to record.
+  description: >-
+    The Qualified Messenger loader — the client-side script a customer embeds on their website
+    to run Piper's conversations, offers and meeting booking. It is Qualified's own build,
+    served from its own CloudFront distribution and injected by qualified.com itself.
+  api_client: false
+  note: >-
+    This is a browser embed for the visitor-facing agent, NOT a client for the Enterprise API
+    documented in openapi/. It is recorded here because it is the only first-party distributed
+    build Qualified ships, and its client-side call surface (startCall, startChat, added in the
+    Summer '26 release) is captured in components/qualified-com-components.yml.
+registries_checked:
+- registry: npm
+  query: 'search "qualified.com" and "qualified api sdk"'
+  result: no first-party package
+- registry: PyPI
+  query: qualified, qualified-api, qualified-sdk
+  result: 'qualified exists but is third-party (Timothy Crosley); the other two 404'
+- registry: GitHub organizations
+  query: qualified, qualifiedcom, qualified-com
+  result: no organization owned by Qualified.com
+- registry: Postman public workspaces
+  query: qualified.com
+  result: no first-party workspace or collection

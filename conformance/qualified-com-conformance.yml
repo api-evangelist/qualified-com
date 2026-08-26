@@ -1,0 +1,108 @@
+generated: '2026-08-26'
+method: searched
+source: https://www.qualified.com/trust
+derived_from: openapi/qualified-com-enterprise-api-openapi.json
+standards:
+- id: openapi-3.0.3
+  conforms: true
+  evidence: >-
+    openapi/qualified-com-enterprise-api-openapi.json declares openapi 3.0.3, 21 paths,
+    23 operations, all with unique operationIds, summaries, descriptions and tags, and
+    27 reusable components.schemas.
+- id: oauth2
+  conforms: false
+  evidence: >-
+    No authorization-code or client-credentials flow is published; no /authorize or /token
+    endpoint exists. Qualified borrows OAuth-style scope NAMES for API keys but does not
+    implement the protocol.
+- id: oidc
+  conforms: false
+  evidence: /.well-known/openid-configuration returns 404 on www and api, 401 on app (probed 2026-08-26).
+- id: rfc9457
+  conforms: false
+  evidence: >-
+    Errors are vendor JSON with four different envelope shapes; no application/problem+json
+    is declared anywhere in the spec.
+- id: rfc8594
+  conforms: false
+  evidence: No Sunset or Deprecation response headers are documented or declared.
+- id: rfc9116
+  conforms: false
+  evidence: /.well-known/security.txt returns 404 on www.qualified.com and api.qualified.com (probed 2026-08-26).
+- id: pagination
+  conforms: true
+  style: cursor
+  evidence: >-
+    Every list endpoint returns a pageInfo block with hasNextPage/hasPreviousPage/
+    startCursor/endCursor and accepts opaque after/before cursors. Fixed 1000-record pages.
+- id: idempotency
+  conforms: false
+  evidence: >-
+    No Idempotency-Key header. Natural-key upsert on POST /v2/leads and POST /v2/companies
+    only; cancelMeeting returns 422 on repeat rather than a no-op success.
+- id: ratelimit-headers
+  conforms: partial
+  evidence: >-
+    Returns RateLimit-Limit / RateLimit-Remaining / RateLimit-Reset plus Retry-After, in the
+    IETF draft naming. Reset is epoch seconds rather than delta-seconds, and the headers
+    describe only the 15-minute tier of a four-tier limit, so they do not fully describe the
+    policy in force.
+- id: json:api
+  conforms: false
+  evidence: Responses use a plain {data, pageInfo} envelope, not the JSON:API media type or document structure.
+- id: odata
+  conforms: false
+  evidence: No $metadata surface and no OData query options.
+- id: scim
+  conforms: false
+  evidence: No urn:ietf:params:scim schema URNs; user/team provisioning is not exposed on the API.
+- id: gdpr
+  conforms: true
+  evidence: >-
+    Stated on https://www.qualified.com/trust ("Qualified is fully committed to compliance with
+    the GDPR", dedicated GDPR page at https://www.qualified.com/legal/gdpr) AND implemented in
+    the contract: POST /v2/gdpr_deletion_requests (createGdprDeletionRequest) submits up to
+    5,000 email addresses for erasure under the gdpr:manage scope. This is the one regulatory
+    regime Qualified expresses as an API operation rather than only as prose.
+- id: ccpa
+  conforms: true
+  evidence: >-
+    https://www.qualified.com/trust — Qualified acts as a "Service Provider" under the CCPA and
+    states it does not "sell" customer personal information. California Annex published in the DPA.
+- id: soc2-type-ii
+  conforms: true
+  evidence: >-
+    https://www.qualified.com/trust — "Qualified undergoes a SOC 2 Type II audit annually.
+    Contact your Qualified Representative to request access to the current report." Report itself
+    is NDA-gated; the claim is public.
+- id: standard-contractual-clauses
+  conforms: true
+  evidence: >-
+    https://www.qualified.com/trust — Qualified leverages SCCs for transfers of personal data into
+    the U.S., including a DPA covering Qualified and all sub-processors
+    (https://www.qualified.com/legal/subprocessors).
+- id: iso-27001
+  conforms: false
+  evidence: Not claimed anywhere on the trust center. Recorded as absent, not as a failure.
+- id: hipaa
+  conforms: false
+  evidence: Not claimed; Qualified is a B2B go-to-market platform with no stated healthcare posture.
+- id: pci-dss
+  conforms: false
+  evidence: Not claimed; the platform takes no card data.
+- id: fedramp
+  conforms: false
+  evidence: Not claimed.
+domain_standard:
+  market: B2B marketing / sales engagement / conversational marketing
+  declared_in_contract: false
+  evidence: >-
+    No domain standard is declared by the contract. The B2B go-to-market market has no widely
+    adopted interchange standard of the kind scored here — there is no OpenRTB, SCIM URN,
+    OData $metadata, LTI/OneRoster shape, HL7/X12 message type or ActivityPub actor to find,
+    and Qualified declares none. Its interoperability is expressed as named CRM/MAP
+    integrations (Salesforce, HubSpot, Marketo, Eloqua, Outreach, Salesloft, 6sense,
+    Demandbase, Slack) and as Salesforce object identity inside the contract itself — for
+    example cancelMeeting is keyed on a Salesforce Event ID rather than a Qualified id, which
+    is a de facto vendor coupling rather than a standard. Recorded as absent so the
+    reward-only check neither credits nor penalises.

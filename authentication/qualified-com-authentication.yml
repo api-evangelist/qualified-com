@@ -1,0 +1,43 @@
+generated: '2026-08-26'
+method: searched
+source: https://app.qualified.com/docs/api
+docs: https://app.qualified.com/docs/api
+derived_from: openapi/qualified-com-enterprise-api-openapi.json
+api: qualified-com-enterprise-api
+summary:
+  types:
+  - http
+  model: bearer-token-with-named-scopes
+  self_serve: false
+  gate: >-
+    API access is a plan gate. "Enterprise-Grade APIs" first appear on the Enterprise
+    tier of https://www.qualified.com/pricing, and a 401 {"code":"invalid_token"} is
+    also returned when the API is simply not enabled for the team.
+schemes:
+- name: bearerToken
+  type: http
+  scheme: bearer
+  bearerFormat: Token
+  in: header
+  header: Authorization
+  value_format: 'Bearer YOUR_API_TOKEN'
+  example_request: 'curl https://api.qualified.com/v2/leads -H "Authorization: Bearer YOUR_API_TOKEN"'
+  key_issuance: >-
+    API keys are minted in the Qualified app with a specific set of named scopes.
+    A key reaches only the endpoints its scopes allow.
+  scopes_artifact: scopes/qualified-com-scopes.yml
+  sources:
+  - openapi/qualified-com-enterprise-api-openapi.json
+  - https://app.qualified.com/docs/api
+failure_modes:
+- status: 401
+  body: '{"code": "invalid_token"}'
+  meaning: Missing or invalid token, or the API is not enabled for the team.
+- status: 403
+  body: '{"code": "insufficient_scope"}'
+  meaning: The token is valid but lacks the scope the endpoint requires.
+not_supported:
+- oauth2 authorization flows (no /authorize or /token endpoint is published)
+- openIdConnect discovery (no /.well-known/openid-configuration is served on any host)
+- mutualTLS
+- basic auth

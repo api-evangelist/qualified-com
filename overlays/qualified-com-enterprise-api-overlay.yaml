@@ -1,0 +1,127 @@
+overlay: 1.0.0
+info:
+  title: API Evangelist enrichment overlay — Qualified Enterprise API
+  version: 1.0.0
+x-provenance:
+  generated: '2026-08-26'
+  method: generated
+  source: openapi/qualified-com-enterprise-api-openapi.json
+  note: >-
+    Captures API Evangelist's enrichment of Qualified's published contract. Applies ON TOP of
+    the original spec, which is never mutated. Everything asserted here is read from Qualified's
+    own reference at https://app.qualified.com/docs/api or from artifacts in this repo — no
+    behaviour is invented. The largest additions are the scope vocabulary the contract does not
+    model in securitySchemes, and the write-consequence classification an agent needs before it
+    calls anything.
+extends: openapi/qualified-com-enterprise-api-openapi.json
+actions:
+- target: $.info
+  update:
+    x-apis-io-provider: qualified-com
+    x-api-evangelist-profile: https://apis.io/provider/qualified-com/
+    x-contract-source: https://app.qualified.com/docs/api
+    x-contract-discovery: >-
+      Extracted verbatim from the Redocly state embedded in the publicly served reference at
+      https://app.qualified.com/docs/api (HTTP 200), which is iframed by
+      https://www.qualified.com/api. Qualified serves no standalone spec URL — /openapi.json,
+      /swagger.json, /api-docs and /redoc all miss on www, app and api hosts.
+    x-plan-gate: >-
+      Enterprise-Grade APIs are first listed on the Enterprise tier at
+      https://www.qualified.com/pricing. A 401 {"code":"invalid_token"} is also returned when the
+      API is simply not enabled for the team, so entitlement and credential failures are
+      indistinguishable to the caller.
+- target: $
+  update:
+    x-rate-limits:
+      artifact: rate-limits/qualified-com-rate-limits.yml
+      tiers:
+        concurrent: 10
+        per_15_minutes: 2000
+        per_hour: 7000
+        per_day: 120000
+      headers: [RateLimit-Limit, RateLimit-Remaining, RateLimit-Reset, Retry-After]
+      caveat: >-
+        RateLimit-* describes the 15-minute tier ONLY. Remaining quota there does not mean the
+        hourly or daily tier will admit the request. The concurrency limit returns 429 with no
+        Retry-After at all.
+    x-authentication:
+      artifact: authentication/qualified-com-authentication.yml
+      model: bearer token carrying named scopes minted in-app
+    x-scopes:
+      artifact: scopes/qualified-com-scopes.yml
+      convention: ':view for reads, :manage for writes; :manage implies :view'
+    x-conventions:
+      artifact: conventions/qualified-com-conventions.yml
+      idempotency: not supported (natural-key upsert only)
+      dry_run: not supported
+      reversibility: documented (cancelMeeting; no stated window)
+    x-errors:
+      artifact: errors/qualified-com-problem-types.yml
+      rfc9457: false
+      caveat: Four different envelope shapes. Read error, code and message defensively.
+    x-data-model:
+      artifact: data-model/qualified-com-data-model.yml
+      join_key: Lead.visitorIds bridges the lead-keyed and visitor-keyed halves of the graph.
+- target: $.paths['/v2/leads'].post
+  update:
+    x-agentic-access:
+      action_class: write
+      consequence: medium
+      required_scope: lead:manage
+      reversible: partial
+      reversal_note: >-
+        Upsert by email converges on replay, so a retry is safe, but Qualified returns no
+        before-image and publishes no delete. A caller that overwrites a field value cannot
+        restore it unless it kept its own copy.
+- target: $.paths['/v2/companies'].post
+  update:
+    x-agentic-access:
+      action_class: write
+      consequence: high
+      required_scope: company:manage
+      reversible: false
+      blast_radius: >-
+        Sets account-level field values inherited by EVERY lead on the domain and advances
+        updatedAt on all of them. Companies cannot be read back, so the prior value cannot be
+        fetched before overwriting. Highest-consequence, least-reversible write on the API.
+      escalation: require human confirmation
+- target: $.paths['/v2/meetings'].delete
+  update:
+    x-agentic-access:
+      action_class: reversal
+      consequence: medium
+      required_scope: meeting:manage
+      reversible: false
+      note: >-
+        Cancels a booked meeting keyed on the SALESFORCE Event ID, not the Qualified Meeting id.
+        A repeat call returns 422 rather than a no-op success, so cancellation is not idempotent.
+        No re-book operation is published — this reverses a booking but cannot be undone itself.
+- target: $.paths['/v2/gdpr_deletion_requests'].post
+  update:
+    x-agentic-access:
+      action_class: destructive
+      consequence: critical
+      required_scope: gdpr:manage
+      reversible: false
+      escalation: require human confirmation
+      note: >-
+        Irreversible erasure of up to 5,000 addresses per request. No undo, no grace period, no
+        restore path. One malformed address rejects the whole batch, which is the only safety
+        net present.
+- target: $.paths['/v2/bulk'].post
+  update:
+    x-agentic-access:
+      action_class: write
+      consequence: high
+      required_scope: bulk_job:manage
+      reversible: false
+      note: >-
+        202 confirms only that the BATCH was accepted. Per-item outcomes must be read from
+        failedRecords and the errors on each entry of the job's result array. There is no
+        batch-level rollback, and a naive retry resubmits the whole batch.
+- target: $.tags
+  update:
+    x-tag-notes:
+      Companies: Write-only. No read endpoint exists for this resource.
+      Messages: Immutable once sent; updated_* filters behave as created_*.
+      Cancel Meeting: Keyed on a Salesforce Event ID rather than a Qualified identifier.

@@ -1,0 +1,58 @@
+generated: '2026-08-26'
+method: searched
+source: https://app.qualified.com/docs/api
+docs: https://app.qualified.com/docs/api
+api: qualified-com-enterprise-api
+model: >-
+  Qualified does not run an OAuth 2.0 authorization-code flow for the Enterprise API.
+  API keys are minted inside the Qualified app with an explicit, named set of
+  OAuth-style scopes, and the key is then presented as a bearer token. The OpenAPI
+  declares only `bearerToken` (http/bearer), so the scope vocabulary below is read
+  from the published reference rather than from `securitySchemes` — recorded here so
+  the permission surface is machine-readable even though the spec does not model it.
+enforcement:
+  insufficient_scope_status: 403
+  insufficient_scope_body: '{"code": "insufficient_scope"}'
+  convention: >-
+    Read endpoints require a :view scope; write endpoints require a :manage scope.
+    Granting :manage also grants the matching :view.
+scope_count: 9
+scopes:
+- name: lead:view
+  description: Read leads.
+  operations: [listLeads, getLead]
+- name: lead:manage
+  description: Create and update leads. Implies lead:view.
+  operations: [upsertLead]
+- name: company:manage
+  description: Create and update companies. Companies cannot be read back.
+  operations: [upsertCompany]
+- name: session:view
+  description: Read website sessions.
+  operations: [listSessions, getSession]
+- name: conversation:view
+  description: Read conversations and messages. Covers both message endpoints.
+  operations: [listConversations, getConversation, listConversationMessages, listMessages, getMessage]
+- name: meeting:view
+  description: Read meetings.
+  operations: [listMeetings, getMeeting]
+- name: meeting:manage
+  description: Cancel meetings. Implies meeting:view.
+  operations: [cancelMeeting]
+- name: email:view
+  description: Read outbound email activity.
+  operations: [listEmails, getEmail]
+- name: bulk_job:manage
+  description: Submit bulk jobs and read their status. Covers both /v2/bulk endpoints.
+  operations: [createBulkJob, getBulkJob]
+- name: gdpr:manage
+  description: Submit GDPR deletion requests.
+  operations: [createGdprDeletionRequest]
+- name: legacy:view
+  description: Read the legacy /v1 bot and rep reporting endpoints.
+  operations: [listBotConversations, listRepConversations]
+unscoped_operations:
+- operationId: listLeadFields
+  note: GET /v2/leads/fields requires only a valid token, no scope.
+- operationId: listCompanyFields
+  note: GET /v2/companies/fields requires only a valid token, no scope.

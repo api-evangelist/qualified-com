@@ -1,23 +1,138 @@
 aid: qualified-com
 name: Qualified
-description: 'Qualified is a company surfaced via the API Evangelist harvest backlog (source: secondary-market)
-  and added to the network as a stub for full-pipeline profiling.'
+description: 'Qualified is a San Francisco based B2B agentic marketing platform built
+  around Piper, an AI SDR agent that engages website visitors in real time with chat,
+  voice, video, email, meeting booking and personalized offers, and works natively
+  alongside Salesforce, HubSpot, Marketo, Eloqua, Outreach, Salesloft, 6sense, Demandbase
+  and Slack. The company publishes the Qualified Enterprise API, a versioned REST
+  contract at api.qualified.com that exposes the underlying records behind the platform
+  — leads, website sessions, conversations, messages, meetings and outbound emails
+  — plus write endpoints for leads and companies, a bulk job endpoint and a GDPR
+  deletion request endpoint, so customers can pipe engagement data into Snowflake,
+  Databricks, BigQuery, Adobe AEP or Eloqua and write enriched records back. The
+  API is bearer-token authenticated with named OAuth-style scopes, cursor paginated,
+  documented for incremental (delta) sync, and is available on the Enterprise and
+  Ultimate plan tiers.'
 url: https://raw.githubusercontent.com/api-evangelist/qualified-com/refs/heads/main/apis.yml
 x-type: company
 x-source: harvest:secondary-market
-x-tier: stub
-x-tier-reason: harvest
 specificationVersion: '0.20'
+x-enrichment:
+  date: '2026-08-26'
+  status: enriched
+  artifacts_added: 22
+  pass: local-v1
 created: '2026-08-26'
 modified: '2026-08-26'
+image: https://www.qualified.com/favicon.ico
 tags:
 - Company
-apis: []
+- Conversational Marketing
+- Sales
+- Marketing
+- Artificial Intelligence
+- AI Agents
+- Lead Generation
+- Customer Engagement
+- Salesforce
+- Analytics
+apis:
+- aid: qualified-com-enterprise-api
+  name: Qualified Enterprise API
+  description: 'The Qualified Enterprise API (v2) connects Qualified data to a warehouse,
+    CDP or downstream system. It exposes leads, website sessions, conversations, messages,
+    meetings and outbound emails as readable resources, and accepts writes back to
+    Qualified for leads and companies individually or through a bulk job. Reads follow
+    a pull model over a time window with cursor pagination; writes are scoped by named
+    permissions on the API key. Two legacy /v1 reporting endpoints for bot and rep
+    conversations remain supported.'
+  humanURL: https://www.qualified.com/api
+  baseURL: https://api.qualified.com
+  tags:
+  - Leads
+  - Companies
+  - Sessions
+  - Conversations
+  - Messages
+  - Meetings
+  - Emails
+  - Reporting
+  properties:
+  - type: OpenAPI
+    url: openapi/qualified-com-enterprise-api-openapi.json
+  - type: APIReference
+    url: https://www.qualified.com/api
+  - type: Documentation
+    url: https://app.qualified.com/docs/api
 maintainers:
 - FN: Kin Lane
   email: kin@apievangelist.com
 - FN: APIs.json
   email: info@apis.io
 common:
+- type: DomainSecurity
+  url: security/qualified-com-domain-security.yml
+- type: Authentication
+  url: authentication/qualified-com-authentication.yml
 - type: Website
-  url: https://forgeglobal.com/qualified-com_stock/
+  url: https://www.qualified.com/
+- type: DeveloperPortal
+  url: https://www.qualified.com/api
+- type: Documentation
+  url: https://app.qualified.com/docs/api
+- type: APIReference
+  url: https://app.qualified.com/docs/api
+- type: Support
+  url: https://university.qualified.com/
+- type: HelpCenter
+  url: https://university.qualified.com/
+- type: Blog
+  url: https://www.qualified.com/plus/blog
+- type: Pricing
+  url: https://www.qualified.com/pricing
+- type: SignUp
+  url: https://www.qualified.com/sign-in
+- type: TermsOfService
+  url: https://www.qualified.com/legal/terms-of-service
+- type: PrivacyPolicy
+  url: https://www.qualified.com/legal/privacy
+- type: TrustCenter
+  url: https://www.qualified.com/trust
+- type: Compliance
+  url: https://www.qualified.com/trust
+- type: StatusPage
+  url: https://status.qualified.com/
+- type: LLMsTxt
+  url: llms/qualified-com-llms.txt
+- type: OAuthScopes
+  url: scopes/qualified-com-scopes.yml
+- type: Conventions
+  url: conventions/qualified-com-conventions.yml
+- type: ErrorCatalog
+  url: errors/qualified-com-problem-types.yml
+- type: Lifecycle
+  url: lifecycle/qualified-com-lifecycle.yml
+- type: Deprecation
+  url: lifecycle/qualified-com-lifecycle.yml
+- type: Conformance
+  url: conformance/qualified-com-conformance.yml
+- type: VulnerabilityDisclosure
+  url: security/qualified-com-vulnerability-disclosure.yml
+- type: Security
+  url: security/qualified-com-vulnerability-disclosure.yml
+- type: DataModel
+  url: data-model/qualified-com-data-model.yml
+- type: Overlay
+  url: overlays/qualified-com-enterprise-api-overlay.yaml
+- type: Packages
+  url: packages/qualified-com-packages.yml
+- type: Components
+  url: components/qualified-com-components.yml
+- type: ChangeLog
+  url: changelog/qualified-com-changelog.yml
+- type: Plans
+  url: plans/qualified-com-plans-pricing.yml
+- type: RateLimits
+  url: rate-limits/qualified-com-rate-limits.yml
+- type: AgentSkill
+  url: skills/_index.yml

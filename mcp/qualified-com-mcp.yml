@@ -1,0 +1,130 @@
+generated: '2026-08-26'
+method: derived
+source: openapi/qualified-com-enterprise-api-openapi.json
+status: candidate
+name: Qualified Enterprise API (candidate MCP surface)
+description: >-
+  Qualified ships NO MCP server. This is a derived candidate tool list showing what an MCP
+  server over the published Enterprise API would expose, so the gap is visible rather than
+  silent. Nothing here is callable today.
+deployment:
+  mode: none
+  endpoint: null
+  install: null
+  package: null
+  auth: unknown
+  verified: derived
+search_evidence:
+- probe: https://www.qualified.com/mcp
+  status: 404
+- probe: https://www.qualified.com/.well-known/ai-plugin.json
+  status: 404
+- probe: https://api.qualified.com/.well-known/ai-plugin.json
+  status: 404
+- probe: web search for a Qualified.com MCP server or remote endpoint
+  result: none found
+- probe: npm registry search for a first-party @qualified MCP package
+  result: none found
+- note: >-
+    Worth flagging for the provider: Qualified sells an autonomous AI agent (Piper) and markets
+    itself as an "agentic marketing platform", yet publishes no agent-callable surface of its
+    own — no MCP server, no agent card, no llms.txt tool list. The agency runs outward toward
+    the customer's buyers, not inward toward the customer's agents.
+candidate_tools:
+- name: list_leads
+  operationId: listLeads
+  rest: GET /v2/leads
+  scope: lead:view
+  description: List identified people, filtered by updated_after/created_after and cursor-paged.
+- name: get_lead
+  operationId: getLead
+  rest: GET /v2/leads/{id}
+  scope: lead:view
+- name: upsert_lead
+  operationId: upsertLead
+  rest: POST /v2/leads
+  scope: lead:manage
+  consequence: write
+- name: list_lead_fields
+  operationId: listLeadFields
+  rest: GET /v2/leads/fields
+  scope: none
+- name: upsert_company
+  operationId: upsertCompany
+  rest: POST /v2/companies
+  scope: company:manage
+  consequence: write
+  warning: Sets account-level values inherited by every lead on the domain; not readable back.
+- name: list_company_fields
+  operationId: listCompanyFields
+  rest: GET /v2/companies/fields
+  scope: none
+- name: list_sessions
+  operationId: listSessions
+  rest: GET /v2/sessions
+  scope: session:view
+- name: get_session
+  operationId: getSession
+  rest: GET /v2/sessions/{id}
+  scope: session:view
+- name: list_conversations
+  operationId: listConversations
+  rest: GET /v2/conversations
+  scope: conversation:view
+- name: get_conversation
+  operationId: getConversation
+  rest: GET /v2/conversations/{id}
+  scope: conversation:view
+- name: list_conversation_messages
+  operationId: listConversationMessages
+  rest: GET /v2/conversations/{id}/messages
+  scope: conversation:view
+- name: list_messages
+  operationId: listMessages
+  rest: GET /v2/messages
+  scope: conversation:view
+- name: get_message
+  operationId: getMessage
+  rest: GET /v2/messages/{id}
+  scope: conversation:view
+- name: list_meetings
+  operationId: listMeetings
+  rest: GET /v2/meetings
+  scope: meeting:view
+- name: get_meeting
+  operationId: getMeeting
+  rest: GET /v2/meetings/{id}
+  scope: meeting:view
+- name: cancel_meeting
+  operationId: cancelMeeting
+  rest: DELETE /v2/meetings
+  scope: meeting:manage
+  consequence: reversal
+- name: list_emails
+  operationId: listEmails
+  rest: GET /v2/emails
+  scope: email:view
+- name: get_email
+  operationId: getEmail
+  rest: GET /v2/emails/{id}
+  scope: email:view
+- name: create_bulk_job
+  operationId: createBulkJob
+  rest: POST /v2/bulk
+  scope: bulk_job:manage
+  consequence: write
+- name: get_bulk_job
+  operationId: getBulkJob
+  rest: GET /v2/bulk/{id}
+  scope: bulk_job:manage
+- name: create_gdpr_deletion_request
+  operationId: createGdprDeletionRequest
+  rest: POST /v2/gdpr_deletion_requests
+  scope: gdpr:manage
+  consequence: destructive
+  warning: Irreversible erasure of up to 5,000 addresses. Never expose to an unattended agent.
+excluded_from_candidate_set:
+- operationId: listBotConversations
+  reason: Legacy /v1 endpoint superseded by the conversations/messages/meetings surface.
+- operationId: listRepConversations
+  reason: Legacy /v1 endpoint superseded by the conversations/messages/meetings surface.

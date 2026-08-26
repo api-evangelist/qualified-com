@@ -1,0 +1,84 @@
+generated: '2026-08-26'
+method: searched
+source: https://app.qualified.com/docs/api
+api: qualified-com-enterprise-api
+
+versioning:
+  scheme: path prefix
+  current_version: '2.0'
+  current_path: /v2
+  documented_version: /v2
+  policy_url: https://app.qualified.com/docs/api
+  policy: >-
+    "This reference documents /v2, the current version and the one to build against."
+    New fields and endpoints may be added over time; clients must parse leniently and
+    ignore unrecognized fields.
+
+deprecation:
+  policy_published: true
+  policy_url: https://app.qualified.com/docs/api
+  breaking_change_definition: >-
+    Removing a field, changing a field's type, or changing the format of an id or cursor.
+  advance_notice: >-
+    Qualified states that any such breaking change "will be communicated in advance". No
+    fixed notice period, sunset date, or channel is named.
+  sunset_header: false
+  deprecation_header: false
+  rfc8594: false
+  deprecated_operations_in_spec: 0
+  legacy_surfaces:
+  - path: /v1
+    status: served, supported, undocumented
+    note: >-
+      The earlier /v1 Enterprise API endpoints "are still served and remain supported for
+      existing integrations, but they are not documented here."
+  - operationId: listBotConversations
+    path: /v1/bot_conversations
+    status: legacy, fully supported
+    superseded_by: [listConversations, listMessages, listMeetings]
+    note: >-
+      Predates the rest of the API. Returns snake_case fields and pages with
+      starting_after/limit + a meta block. Not recommended for new integrations.
+  - operationId: listRepConversations
+    path: /v1/rep_conversations
+    status: legacy, fully supported
+    superseded_by: [listConversations, listMessages, listMeetings]
+    note: Same shape and caveats as /v1/bot_conversations.
+  note: >-
+    Qualified's stated posture is compatibility rather than retirement — the legacy
+    endpoints are marked "fully supported", not deprecated, and nothing in the contract
+    carries a sunset date. Recorded honestly: a published breaking-change policy exists;
+    a published removal schedule does not.
+
+status_page:
+  url: https://status.qualified.com/
+  provider: Atlassian Statuspage
+  machine_readable: true
+  api:
+  - https://status.qualified.com/api/v2/summary.json
+  - https://status.qualified.com/api/v2/status.json
+  feed: https://status.qualified.com/history.rss
+  components:
+  - Signals
+  - Conversations
+  - Email
+  - Offers
+  - Platform
+  - Meetings
+  - Web App
+  - Mobile Apps
+  note: >-
+    Probed 2026-08-26: HTTP 200, page id 01JE5JRYMKG9VQM3CGG24B9FQ9, 0 open incidents.
+    The status page tracks product components, not the Enterprise API as a named component.
+
+sla:
+  published: false
+  note: >-
+    No public uptime SLA or credit schedule is published. The Main Services Agreement and
+    availability commitments are referenced from https://www.qualified.com/trust but the
+    terms themselves are contractual, not posted.
+
+release_cadence:
+  scheme: named seasonal releases (Spring / Summer / Autumn / Winter + two-digit year)
+  cadence: quarterly
+  artifact: changelog/qualified-com-changelog.yml

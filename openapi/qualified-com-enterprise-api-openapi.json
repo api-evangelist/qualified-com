@@ -1,0 +1,2908 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Qualified Enterprise API",
+    "version": "2.0",
+    "description": "# Overview\n\n_Last updated: August 9, 2026_\n\nThe Qualified Enterprise API connects your Qualified data to your warehouse, CDP, and downstream systems. It exposes the underlying records for leads, website sessions, conversations, messages, meetings, and emails, so you can build funnels, rep-performance reporting, and engagement metrics on your own terms. It also accepts writes back to Qualified for leads and companies. If you're building a pipeline into Snowflake, Databricks, BigQuery, Adobe AEP, or Eloqua, this is the API for it.\n\nAt the center is the **Lead**, Qualified's rollup of everything known about one identified person: their website activity together with their records in your connected CRMs, keyed on email address. Sessions, conversations, meetings, and emails are **activities**. Sessions, conversations, and meetings each carry a **`visitorId`**, the stable key for the browser the activity happened in, assigned before the person is known and never changed. You resolve those activities to a person through the lead's `visitorIds`. Emails carry a `leadId`; messages join through their `conversationId`.\n\nReads follow a pull model: you query each resource on your own schedule over a time window, re-running to reconcile. Writes cover leads and companies, sent individually or batched through a bulk job, and a single write to the Companies endpoint sets account-level field values that every lead on that domain inherits.\n\nResponses contain personal data, including names, email addresses, and message text. Store and handle it according to your data-protection policies.\n\n# Authentication and access\n\nEvery request is authenticated with a bearer token:\n\n```\ncurl https://api.qualified.com/v2/leads \\\n  -H \"Authorization: Bearer YOUR_API_TOKEN\"\n```\n\nAPI keys are minted in the Qualified app with a specific set of **OAuth scopes**. A key reaches only the endpoints its scopes allow; a request without the required scope returns `403` with `{\"code\": \"insufficient_scope\"}`. Read endpoints require a `:view` scope and write endpoints require a `:manage` scope. Granting `:manage` also grants the matching `:view`.\n\n| Scope | Grants access to |\n|---|---|\n| `lead:view` / `lead:manage` | Read leads / create and update leads |\n| `company:manage` | Create and update companies |\n| `session:view` | Read sessions |\n| `conversation:view` | Read conversations and messages |\n| `meeting:view` / `meeting:manage` | Read meetings / cancel meetings |\n| `email:view` | Read emails |\n| `bulk_job:manage` | Submit bulk jobs and read their status (covers both `/v2/bulk` endpoints) |\n| `gdpr:manage` | Submit GDPR deletion requests |\n| `legacy:view` | Read the legacy bot/rep reporting endpoints |\n\nBoth message endpoints, `/v2/messages` and `/v2/conversations/{id}/messages`, use the `conversation:view` scope. The two field-listing endpoints, `/v2/leads/fields` and `/v2/companies/fields`, require only a valid token.\n\n# Identity\n\nActivities resolve to a person through one of two keys, and this is the model to understand before you design your schema. Sessions, conversations, and meetings are keyed on the **visitor**, the browser the activity happened in. Emails are keyed on the **lead**, since an email is addressed to a person rather than to a browser.\n\n- A **visitor** is a single browser or device. Every session, conversation, and meeting carries a **`visitorId`**, assigned the first time that browser is seen and stable for its lifetime.\n- A **lead** is the person: Qualified's rollup of everything known about one identified individual, keyed on email address and joined to their records in your connected CRMs. Emails carry a **`leadId`**, which is null when the mailing cannot be resolved to a lead.\n\n**A lead owns its visitors.** One person often browses from more than one device, and each device is a separate visitor. Every lead exposes a **`visitorIds`** array naming all the visitors that belong to it. To resolve a session, conversation, or meeting to a person, match its `visitorId` against the lead that lists it. The visitor is the join key, and the lead is where the mapping lives.\n\n**Only identified people are returned as leads.** `/v2/leads` and `/v2/leads/{id}` return leads that have an email address. Activity from a visitor who has not been identified is grouped by its `visitorId` alone, and joins to a lead the moment that visitor appears in a lead's `visitorIds`.\n\n**Unidentified visitors still carry data.** You don't need a lead to learn something about a person. Each session includes a `visitor` object holding that visitor's field answers and CRM record ids, so activity from people who are not yet identified is still worth ingesting. These are the visitor's **current** values, resolved when you make the request, not a snapshot as of that session — re-reading an old session returns today's values. The object is null when the visitor cannot be loaded.\n\n**Identification is retroactive.** When a visitor is identified, it joins the matching lead's `visitorIds`. Because a `visitorId` never changes, the visitor's earlier activity belonged to the same person all along, and you attach it the moment the visitor appears in `visitorIds`.\n\nA few details:\n\n- `visitorId` is present and immutable on every session, conversation, and meeting, including meetings booked outside a website session through a direct or routed meeting link or live booking.\n- Filter sessions, conversations, and meetings with `visitor_id`, and emails with `lead_id`. To pull one person's full history from the visitor-keyed endpoints, read their lead's `visitorIds` and query each in turn. To go the other way, `GET /v2/leads?email=` looks a person up by address.\n- Messages have no identity key of their own. They resolve through their `conversationId`.\n\n# Incremental sync\n\nAn incremental (delta) sync pulls only the records that changed since your last run, rather than re-downloading everything each time. You add a time window to each request: for example, `GET /v2/leads?updated_after=2026-06-01` returns only the leads updated on or after June 1.\n\nThere are three timestamps you can filter on:\n\n- **created:** when the record first appeared. Use it to find brand-new records.\n- **updated:** when the record last changed. Use it to catch new and changed records. Most delta syncs run on this.\n- **ended:** when a session or conversation finished. Sessions and conversations are filtered by when they ended rather than when they were last updated.\n\n**Which timestamp to use for each resource:**\n\n- **Leads, Meetings, Emails** use `updated_after` (with `updated_before` for an upper bound).\n- **Conversations** use `ended_after` / `ended_before`.\n- **Sessions** use `ended_after` / `ended_before`.\n- **Messages** use `created_after` / `created_before`, since messages never change once sent.\n\nMeetings, Emails, and Leads also accept `created_after` / `created_before` if you only want records *created* in the window. Sessions and conversations are windowed by end time only, since both become available once the session ends, so `created_after` / `created_before` are not offered for them. Timestamps are interpreted in **UTC** unless they carry an offset. A bare date like `2026-06-01` means midnight UTC at the *start* of that day on every bound, upper and lower alike, so to cover a whole day set the upper bound to the next day's date or pass a full timestamp. Timestamps in responses always come back as ISO-8601 in UTC (for example, `2026-06-12T15:04:05Z`).\n\nRequest parameters are `snake_case` (`updated_after`); the matching fields in responses are `camelCase` (`updatedAt`). Use `snake_case` in query parameters and read `camelCase` from response bodies.\n\n**What counts as a change.** For the resources you sync on `updated_after`, `updatedAt` advances on:\n\n- **Leads:** an email change, any custom field-value change (including automated updates such as email engagement and unsubscribes), a new visitor being associated with the lead (which is how a late identification surfaces), and a write to the Companies endpoint that changes an account-level field, which advances `updatedAt` on every lead on that domain.\n- **Emails:** recording an open, click, reply, or bounce. `updatedAt` is therefore always at least as recent as `openedAt`, `clickedAt`, `repliedAt`, and `bouncedAt`, so post-send engagement surfaces on `updated_after`. Opens can be recorded well after the send, so keep your re-sync window wide enough to catch them.\n- **Meetings:** any change to the offer or the calendar event, so reschedules, cancellations, and no-shows all surface, not only the original booking.\n\nTwo behaviors to keep in mind:\n\n- **Records become available after a hold.** Sessions, and the conversations and messages in them, appear in list results 30 minutes after the session ends. Leads and emails appear 30 minutes after they are created. Meetings appear 24 hours after they are created, and that hold applies whichever filter you use, so a meeting booked today is not reachable on `updated_after` either until tomorrow. Reads by id are always current. A bound that falls inside the hold has nothing to return yet, so it is rejected with `400` rather than coming back empty: keep `ended_*` (sessions, conversations) and `created_*` (leads, emails, messages, meetings) at or before 30 minutes ago, or 24 hours ago for meetings. Re-run the prior window on your next pass to pick up anything that arrived late.\n- **`updated_*` on `/v2/messages`.** Because messages never change, `updated_after` / `updated_before` on `/v2/messages` behave exactly like `created_after` / `created_before`. `/v2/conversations/{id}/messages` accepts the same pair and filters the stored update time, which for a message that has not been edited matches its creation time.\n\n# Pagination\n\nList endpoints are paged with a cursor, an opaque marker the API returns. Pass back the cursors the API gives you rather than constructing them.\n\n- `after` pages forward and `before` pages backward.\n- Every page returns up to **1000** records; the page size is fixed. (The legacy reporting endpoints page differently — see [Legacy reporting endpoints](#section/Legacy-reporting-endpoints).)\n- Results are ordered newest-first. The exact sort key varies by resource: leads, emails, and meetings sort on their own record id, sessions on their `endedAt`, and conversations and messages on their parent session's `endedAt`. In every case it is a stable descending order, but it is not necessarily the same timestamp you filtered on, so do not infer a record's position from its `updatedAt`.\n\nEvery list response includes a `pageInfo` block:\n\n```json\n{\n  \"data\": [ ... ],\n  \"pageInfo\": {\n    \"hasNextPage\": true,\n    \"hasPreviousPage\": false,\n    \"startCursor\": \"Qx7...\",\n    \"endCursor\": \"Zk2...\"\n  }\n}\n```\n\nPage forward by passing `endCursor` as `after` until `hasNextPage` is `false`. Drive the loop off `hasNextPage` rather than the number of rows you expected, since a page can come back smaller than the maximum. **Pagination, not window size, is how you pull a large range:** request the window you need and page through it, since a wide window never returns everything in one response. For efficient backfills, still work in bounded windows (around a day for high-volume resources) and page each to completion, which keeps every request comfortably within request limits.\n\nCursors are anchored on a record id, so records arriving mid-sync do not shift the page you are on. Two things to handle anyway: a cursor whose record is no longer readable is rejected with `400`, so restart that window rather than retrying the cursor; and `hasPreviousPage` on the activity endpoints (sessions, conversations, messages, meetings) reports only that the current page is non-empty, so drive your loop off `hasNextPage`. Re-running overlapping windows, as described under [Incremental sync](#section/Incremental-sync), is what makes a sync reliable end to end.\n\n# Rate limits\n\nLimits are enforced per team. The defaults:\n\n| Limit | Value |\n|---|---|\n| Concurrent requests | 10 |\n| Requests per 15 minutes | 2,000 |\n| Requests per hour | 7,000 |\n| Requests per day | 120,000 |\n\nResponses carry `RateLimit-Limit`, `RateLimit-Remaining`, and `RateLimit-Reset` (epoch seconds). These describe the **15-minute** window only, so you can have remaining quota there and still be rejected by the hourly or daily tier.\n\nExceeding a limit returns `429` with `{\"code\": \"rate_limited\"}`. For the three time-window limits the response includes a `Retry-After` header; back off for that many seconds. The concurrency limit returns `429` **without** `Retry-After` or `RateLimit-*` headers, so treat a missing `Retry-After` as \"retry once a request in flight completes\" rather than as an error. Keep concurrency at or below 10.\n\n# Errors\n\nThe API uses standard HTTP status codes. Error bodies vary by status code, as shown below; parse each according to the shape listed.\n\n| Status | Meaning | Body | What to do |\n|---|---|---|---|\n| `400` | Malformed request, such as a bad date, cursor, or filter value, or a time window that starts inside a resource's availability hold | `{\"error\": \"...\"}` (bulk: `{\"code\",\"message\"}`) | Fix the request parameters and retry. |\n| `401` | Missing or invalid token, or API not enabled for the team | `{\"code\": \"invalid_token\"}` | Check the token, and that the API is enabled for the team. |\n| `403` | Token lacks the required scope | `{\"code\": \"insufficient_scope\"}` | Re-mint the key with the scope the endpoint needs. |\n| `404` | Record not found, or a path id that can't be decoded | `{\"error\": \"...\"}`, `{\"code\": \"not_found\", \"message\": \"...\"}`, or `{\"message\": \"...\"}` (cancel meeting) | The shape varies by endpoint, so read `error`, `code`, and `message` defensively rather than branching on one key. Treat the record as gone and do not retry. |\n| `422` | Write rejected, such as an unknown field, invalid value, or malformed batch | `{\"error\": \"...\", \"details\": ...}` (bulk: `{\"code\",\"message\"}`) | When a single field is rejected, `details.failed_field` names it; fix that field or value and resubmit. |\n| `429` | Rate limit exceeded | `{\"code\": \"rate_limited\", \"message\": \"...\"}` | Back off for `Retry-After` seconds, then retry. |\n| `500` | Unexpected server error | `{\"error\": \"Internal server error\"}` | Retry with backoff; if it persists, contact support. |\n\n**Bulk writes report failures at two levels.** `POST /v2/bulk` returns `202` to confirm the batch was accepted; individual items within it can still fail. Confirm per-item outcomes by checking `failedRecords` and reading the `errors` on each entry in the job's `result` array.\n\n# Common workflows\n\nCommon integration sequences. Each builds on the concepts above rather than repeating them.\n\n**Backfill history first.** Before your first incremental run, load historical data by walking backward in bounded windows, a week at a time, or a day for high-volume resources, using `created_after`/`created_before` (or `ended_after`/`ended_before` for sessions and conversations) and paging each window to completion. When you reach the present, record the latest timestamp you have seen and switch to the daily delta sync below.\n\n**Daily delta sync.** For each resource, pull a roughly 24-hour window (`updated_after` for leads, meetings, and emails; `ended_after` for conversations and sessions), paging to completion and upserting on the record `id`. For meetings, shift the whole window back 24 hours so it clears the availability hold. Re-run the prior window on the next pass to pick up rows that landed late.\n\n**Resolve identity.** On each leads pull, map the lead's `visitorIds` onto your stored activity so every visitor's history points at the right lead. See [Identity](#section/Identity).\n\n**Pull conversation transcripts.** List conversations on an `ended_after` window, then fetch `/v2/conversations/{id}/messages` for each. `senderType` (`user`, `visitor`, `experience`, `ai_profile`) identifies who spoke, and `senderName` gives the display name where one exists. Both are null when the sender cannot be resolved. Unlike `/v2/messages`, the per-conversation endpoint is not held back, so it returns messages from a session that is still running.\n\n# Versioning and compatibility\n\nThis reference documents `/v2`, the current version and the one to build against. The earlier `/v1` Enterprise API endpoints are still served and remain supported for existing integrations, but they are not documented here. The two legacy reporting endpoints also remain under `/v1` (see [Legacy reporting endpoints](#section/Legacy-reporting-endpoints)). We may add new fields and endpoints over time, so parse responses leniently and ignore any field you do not recognize. Removing a field, changing a field's type, or changing the format of an id or cursor is a breaking change, and we will communicate any such change in advance.\n\n# Legacy reporting endpoints\n\nTwo earlier endpoints, `GET /v1/bot_conversations` and `GET /v1/rep_conversations`, predate the rest of this API and remain under `/v1`. They return a visitor's bot and rep conversations in a self-contained shape, with nested visitor, messages, meetings, and calls, and were the original way to pull conversation history.\n\nThe [Conversations](#tag/Conversations), [Messages](#tag/Messages), and [Meetings](#tag/Meetings) endpoints now cover everything these do and more, in a richer and more consistent form, and are recommended for new integrations. The legacy endpoints remain fully supported for existing integrations. Two differences from the rest of the API: their response fields are **`snake_case`**, predating the `camelCase` convention, and they page with `starting_after`/`limit` and a `meta` block rather than the cursor `pageInfo` used elsewhere.\n\n---"
+  },
+  "servers": [
+    {
+      "url": "https://api.qualified.com",
+      "description": "Production"
+    }
+  ],
+  "security": [
+    {
+      "bearerToken": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "Leads",
+      "description": "Create, update, and read lead (person) records and their custom field values."
+    },
+    {
+      "name": "Companies",
+      "description": "Create and update accounts by domain. Companies cannot be read back."
+    },
+    {
+      "name": "Sessions",
+      "description": "Website sessions, with page views and the conversations and meetings that occurred in them."
+    },
+    {
+      "name": "Conversations",
+      "description": "Engaged chat conversations, meaning the visitor exchanged messages with a rep, bot, or AI assistant."
+    },
+    {
+      "name": "Messages",
+      "description": "Individual messages, either across all conversations or within one."
+    },
+    {
+      "name": "Meetings",
+      "description": "Meetings offered or booked with a visitor."
+    },
+    {
+      "name": "Emails",
+      "description": "Outbound email activity sent from Qualified, with engagement timestamps."
+    },
+    {
+      "name": "Bulk",
+      "description": "Submit batches of writes for asynchronous processing."
+    },
+    {
+      "name": "Cancel Meeting",
+      "description": "Cancel a booked meeting by its Salesforce Event ID."
+    },
+    {
+      "name": "GDPR",
+      "description": "Submit GDPR deletion requests by email."
+    },
+    {
+      "name": "Bot Conversations",
+      "description": "(Legacy) A visitor's conversations with a bot, in a self-contained shape. Superseded by the Conversations and Messages endpoints, which are recommended for new integrations, and remains fully supported for existing ones."
+    },
+    {
+      "name": "Rep Conversations",
+      "description": "(Legacy) A visitor's conversations with a human rep, in a self-contained shape. Superseded by the Conversations and Messages endpoints, which are recommended for new integrations, and remains fully supported for existing ones."
+    }
+  ],
+  "x-tagGroups": [
+    {
+      "name": "Write APIs",
+      "tags": [
+        "Leads",
+        "Companies",
+        "Bulk"
+      ]
+    },
+    {
+      "name": "Activity APIs",
+      "tags": [
+        "Sessions",
+        "Conversations",
+        "Messages",
+        "Meetings",
+        "Emails"
+      ]
+    },
+    {
+      "name": "Utility APIs",
+      "tags": [
+        "Cancel Meeting",
+        "GDPR"
+      ]
+    },
+    {
+      "name": "Legacy Reporting API",
+      "tags": [
+        "Bot Conversations",
+        "Rep Conversations"
+      ]
+    }
+  ],
+  "paths": {
+    "/v2/leads": {
+      "get": {
+        "summary": "List leads",
+        "operationId": "listLeads",
+        "description": "Returns known, emailed leads, newest first, with their custom field values. Window with `updated_after`/`updated_before` to catch new and changed leads, or `created_after`/`created_before` for new leads only. Pass `email` to look one person up by address. Anonymous (email-less) people are not returned here; their activity carries a `visitorId`, which joins to a lead through `visitorIds` once they are identified. Leads become available in this list 30 minutes after they are created.\n\n**Scope:** `lead:view`\n",
+        "tags": [
+          "Leads"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/After"
+          },
+          {
+            "$ref": "#/components/parameters/Before"
+          },
+          {
+            "$ref": "#/components/parameters/CreatedAfter"
+          },
+          {
+            "$ref": "#/components/parameters/CreatedBefore"
+          },
+          {
+            "$ref": "#/components/parameters/UpdatedAfter"
+          },
+          {
+            "$ref": "#/components/parameters/UpdatedBefore"
+          },
+          {
+            "$ref": "#/components/parameters/Email"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of leads.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Lead"
+                      }
+                    },
+                    "pageInfo": {
+                      "$ref": "#/components/schemas/PageInfo"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      },
+      "post": {
+        "summary": "Create or update a lead",
+        "operationId": "upsertLead",
+        "description": "Creates a lead or updates the existing one matched by `email`. Only the field values you send are written; others are left untouched. Returns the lead.\n\nNote: the upsert response returns the lead object at the top level, not wrapped in a `data` envelope.\n\n**Scope:** `lead:manage`\n",
+        "tags": [
+          "Leads"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "email"
+                ],
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "description": "Lead email address. Used to match an existing lead."
+                  },
+                  "fields": {
+                    "type": "object",
+                    "description": "Custom field values keyed by field API name."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Existing lead updated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Lead"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "New lead created.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Lead"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/v2/leads/fields": {
+      "get": {
+        "summary": "List lead fields",
+        "operationId": "listLeadFields",
+        "description": "Returns the custom field definitions for leads (person category), so you can map API names to types when ingesting the `fields` object.\n\n**Scope:** none beyond a valid token.\n",
+        "tags": [
+          "Leads"
+        ],
+        "responses": {
+          "200": {
+            "description": "Lead field definitions.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Field"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/v2/leads/{id}": {
+      "get": {
+        "summary": "Get a lead",
+        "operationId": "getLead",
+        "description": "Returns a single lead by id. Lead ids come from `/v2/leads`, from an email's `leadId`, or from matching an activity's `visitorId` against a lead's `visitorIds`. Only identified people have leads. See Identity.\n\n**Scope:** `lead:view`\n",
+        "tags": [
+          "Leads"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Encoded lead id.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The lead.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Lead"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/v2/companies": {
+      "post": {
+        "summary": "Create or update a company",
+        "operationId": "upsertCompany",
+        "description": "Creates a company or updates the one matched by `domain`. Sets account-level field values on the company; every lead on that domain inherits them when read, and a lead's own person-level fields are never modified. Only account-category fields are accepted, and only the fields you send are updated. A write that changes a value advances `updatedAt` on every lead on that domain, so those leads resurface on your next `updated_after` pull. Returns the company at the top level, not wrapped in a `data` envelope.\n\n**Scope:** `company:manage`\n",
+        "tags": [
+          "Companies"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "domain"
+                ],
+                "properties": {
+                  "domain": {
+                    "type": "string",
+                    "description": "Company domain. Used to match an existing company."
+                  },
+                  "name": {
+                    "type": "string",
+                    "description": "Company name."
+                  },
+                  "fields": {
+                    "type": "object",
+                    "description": "Account-category custom field values keyed by field API name."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Existing company updated.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Company"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "New company created.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Company"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/v2/companies/fields": {
+      "get": {
+        "summary": "List company fields",
+        "operationId": "listCompanyFields",
+        "description": "Returns the custom field definitions for companies (account category).\n\n**Scope:** none beyond a valid token.\n",
+        "tags": [
+          "Companies"
+        ],
+        "responses": {
+          "200": {
+            "description": "Company field definitions.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Field"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/v2/sessions": {
+      "get": {
+        "summary": "List sessions",
+        "operationId": "listSessions",
+        "description": "Returns website sessions, newest first. Window with `ended_after`/`ended_before`. Sessions become available in this list 30 minutes after they end.\n\n**Scope:** `session:view`\n",
+        "tags": [
+          "Sessions"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/After"
+          },
+          {
+            "$ref": "#/components/parameters/Before"
+          },
+          {
+            "$ref": "#/components/parameters/EndedAfter"
+          },
+          {
+            "$ref": "#/components/parameters/EndedBefore"
+          },
+          {
+            "$ref": "#/components/parameters/VisitorId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of sessions.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Session"
+                      }
+                    },
+                    "pageInfo": {
+                      "$ref": "#/components/schemas/PageInfo"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/v2/sessions/{id}": {
+      "get": {
+        "summary": "Get a session",
+        "operationId": "getSession",
+        "description": "Returns a single session by id. A by-id read is not subject to the list hold-back and returns the latest data.\n\n**Scope:** `session:view`\n",
+        "tags": [
+          "Sessions"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Encoded session id.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The session.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Session"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/v2/conversations": {
+      "get": {
+        "summary": "List conversations",
+        "operationId": "listConversations",
+        "description": "Returns engaged conversations, newest first. Window with `ended_after`/`ended_before`; a conversation is windowed by end time and becomes available in this list 30 minutes after its session ends.\n\n**Scope:** `conversation:view`\n",
+        "tags": [
+          "Conversations"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/After"
+          },
+          {
+            "$ref": "#/components/parameters/Before"
+          },
+          {
+            "$ref": "#/components/parameters/EndedAfter"
+          },
+          {
+            "$ref": "#/components/parameters/EndedBefore"
+          },
+          {
+            "$ref": "#/components/parameters/VisitorId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of conversations.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Conversation"
+                      }
+                    },
+                    "pageInfo": {
+                      "$ref": "#/components/schemas/PageInfo"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/v2/conversations/{id}": {
+      "get": {
+        "summary": "Get a conversation",
+        "operationId": "getConversation",
+        "description": "Returns a single conversation by id. Returns `404` if the conversation is not engaged.\n\n**Scope:** `conversation:view`\n",
+        "tags": [
+          "Conversations"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Encoded conversation id.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The conversation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Conversation"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/v2/conversations/{id}/messages": {
+      "get": {
+        "summary": "List messages in a conversation",
+        "operationId": "listConversationMessages",
+        "description": "Returns the messages for one conversation, newest first. Window with `created_after`/`created_before`; messages are immutable once delivered, so these give stable windowing (`updated_after`/`updated_before` are also accepted). `event`-type messages are excluded. Returns `404` if the conversation is not engaged.\n\n**Scope:** `conversation:view`\n",
+        "tags": [
+          "Conversations"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Encoded conversation id.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/After"
+          },
+          {
+            "$ref": "#/components/parameters/Before"
+          },
+          {
+            "$ref": "#/components/parameters/CreatedAfter"
+          },
+          {
+            "$ref": "#/components/parameters/CreatedBefore"
+          },
+          {
+            "$ref": "#/components/parameters/UpdatedAfter"
+          },
+          {
+            "$ref": "#/components/parameters/UpdatedBefore"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of messages.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Message"
+                      }
+                    },
+                    "pageInfo": {
+                      "$ref": "#/components/schemas/PageInfo"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/v2/messages": {
+      "get": {
+        "summary": "List messages",
+        "operationId": "listMessages",
+        "description": "Returns messages across all engaged conversations, newest first. Window with `created_after`/`created_before`; because messages are immutable, `updated_after`/`updated_before` here behave identically. `event`-type messages are excluded. Messages become available in this list 30 minutes after their session ends.\n\n**Scope:** `conversation:view`\n",
+        "tags": [
+          "Messages"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/After"
+          },
+          {
+            "$ref": "#/components/parameters/Before"
+          },
+          {
+            "$ref": "#/components/parameters/CreatedAfter"
+          },
+          {
+            "$ref": "#/components/parameters/CreatedBefore"
+          },
+          {
+            "$ref": "#/components/parameters/UpdatedAfter"
+          },
+          {
+            "$ref": "#/components/parameters/UpdatedBefore"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of messages.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Message"
+                      }
+                    },
+                    "pageInfo": {
+                      "$ref": "#/components/schemas/PageInfo"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/v2/messages/{id}": {
+      "get": {
+        "summary": "Get a message",
+        "operationId": "getMessage",
+        "description": "Returns a single message by id. `event`-type messages return `404`.\n\n**Scope:** `conversation:view`\n",
+        "tags": [
+          "Messages"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Encoded message id.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The message.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Message"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/v2/meetings": {
+      "get": {
+        "summary": "List meetings",
+        "operationId": "listMeetings",
+        "description": "Returns meetings, newest first. Window results with `created_after`/`created_before`, `updated_after`/`updated_before`, or both. Meetings become available in this list 24 hours after they are created, and that hold applies on either filter, so lag your sync window by a day. Use `/v2/meetings/{id}` for a real-time read.\n\n**Scope:** `meeting:view`\n",
+        "tags": [
+          "Meetings"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/After"
+          },
+          {
+            "$ref": "#/components/parameters/Before"
+          },
+          {
+            "$ref": "#/components/parameters/CreatedAfter"
+          },
+          {
+            "$ref": "#/components/parameters/CreatedBefore"
+          },
+          {
+            "$ref": "#/components/parameters/UpdatedAfter"
+          },
+          {
+            "$ref": "#/components/parameters/UpdatedBefore"
+          },
+          {
+            "$ref": "#/components/parameters/VisitorId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of meetings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Meeting"
+                      }
+                    },
+                    "pageInfo": {
+                      "$ref": "#/components/schemas/PageInfo"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Cancel a meeting",
+        "operationId": "cancelMeeting",
+        "description": "Cancels a booked meeting, identified by its Salesforce Event ID. Requires the meetings API to be enabled for the team.\n\n**Scope:** `meeting:manage`\n",
+        "tags": [
+          "Cancel Meeting"
+        ],
+        "parameters": [
+          {
+            "name": "salesforce_event_id",
+            "in": "query",
+            "required": true,
+            "description": "Salesforce Event ID of the meeting to cancel.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The meeting was canceled.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`salesforce_event_id` was missing.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CodeErrorResponse"
+                },
+                "example": {
+                  "code": "missing_salesforce_event_id",
+                  "message": "salesforce_event_id is required"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "description": "No meeting was found for the given `salesforce_event_id`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The meeting was already canceled.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/v2/meetings/{id}": {
+      "get": {
+        "summary": "Get a meeting",
+        "operationId": "getMeeting",
+        "description": "Returns a single meeting by id. A by-id read is not subject to the list hold-back and returns the latest data.\n\n**Scope:** `meeting:view`\n",
+        "tags": [
+          "Meetings"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Encoded meeting id.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The meeting.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Meeting"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/v2/emails": {
+      "get": {
+        "summary": "List emails",
+        "operationId": "listEmails",
+        "description": "Returns outbound email activity, newest first; only sent and bounced mailings are included. Window with `updated_after`/`updated_before`, which surfaces post-send engagement because `updatedAt` advances when an open, click, reply, or bounce is recorded, or `created_after`/`created_before` for new sends only. Emails become available in this list 30 minutes after they are created.\n\n**Scope:** `email:view`\n",
+        "tags": [
+          "Emails"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/After"
+          },
+          {
+            "$ref": "#/components/parameters/Before"
+          },
+          {
+            "$ref": "#/components/parameters/CreatedAfter"
+          },
+          {
+            "$ref": "#/components/parameters/CreatedBefore"
+          },
+          {
+            "$ref": "#/components/parameters/UpdatedAfter"
+          },
+          {
+            "$ref": "#/components/parameters/UpdatedBefore"
+          },
+          {
+            "$ref": "#/components/parameters/LeadId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of emails.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Email"
+                      }
+                    },
+                    "pageInfo": {
+                      "$ref": "#/components/schemas/PageInfo"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/v2/emails/{id}": {
+      "get": {
+        "summary": "Get an email",
+        "operationId": "getEmail",
+        "description": "Returns a single email activity by id.\n\n**Scope:** `email:view`\n",
+        "tags": [
+          "Emails"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Encoded email id.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The email.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Email"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/v2/bulk": {
+      "post": {
+        "summary": "Submit a bulk job",
+        "operationId": "createBulkJob",
+        "description": "Submits a batch of write operations (up to 500 items) for asynchronous processing. Returns `202` with the job; poll `/v2/bulk/{id}` for status and per-item results.\n\n**Scope:** `bulk_job:manage`\n",
+        "tags": [
+          "Bulk"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "items"
+                ],
+                "properties": {
+                  "items": {
+                    "type": "array",
+                    "description": "1–500 operations to process.",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "entity",
+                        "action",
+                        "data",
+                        "request_id"
+                      ],
+                      "properties": {
+                        "entity": {
+                          "type": "string",
+                          "enum": [
+                            "lead",
+                            "company"
+                          ],
+                          "description": "Target entity. Only `lead` and `company` are supported."
+                        },
+                        "action": {
+                          "type": "string",
+                          "enum": [
+                            "POST"
+                          ],
+                          "description": "Operation to perform. Only `POST` (create-or-update) is supported, for both `lead` and `company`."
+                        },
+                        "data": {
+                          "type": "object",
+                          "description": "The upsert payload, the same body you would send to `POST /v2/leads` (`email` plus `fields`) or `POST /v2/companies` (`domain`, optional `name`, and `fields`)."
+                        },
+                        "request_id": {
+                          "type": "string",
+                          "description": "Caller-supplied id echoed back in the result for correlation."
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Job accepted for processing.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "job": {
+                      "$ref": "#/components/schemas/BulkJob"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BulkBadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "422": {
+            "$ref": "#/components/responses/BulkInvalidItems"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/v2/bulk/{id}": {
+      "get": {
+        "summary": "Get a bulk job",
+        "operationId": "getBulkJob",
+        "description": "Returns the status and per-item results of a bulk job.\n\nA finished job (`completed` or `failed`) is retained for at least 24 hours after it\nfinishes and is then deleted, after which this endpoint returns `404`, so fetch your\nresults within that window. Jobs still `enqueued` or `processing` are never removed.\n\nInspect `failedRecords` for the number of items that failed, and read the `errors` on each entry in the `result` array for per-item detail.\n\n**Scope:** `bulk_job:view`\n",
+        "tags": [
+          "Bulk"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Encoded bulk job id.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The bulk job.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "job": {
+                      "$ref": "#/components/schemas/BulkJob"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BulkBadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/v2/gdpr_deletion_requests": {
+      "post": {
+        "summary": "Submit a GDPR deletion request",
+        "operationId": "createGdprDeletionRequest",
+        "description": "Submits a batch of email addresses for GDPR deletion. Requires the GDPR deletion API to be enabled for the team. Up to 5,000 emails per request; every address must be well-formed or the whole request is rejected.\n\n**Scope:** `gdpr:manage`\n",
+        "tags": [
+          "GDPR"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GdprDeletionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The deletion request was accepted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`emails` was missing from the body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CodeErrorResponse"
+                },
+                "example": {
+                  "code": "missing_emails",
+                  "message": "No valid emails provided."
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "422": {
+            "description": "`emails` was not an array, exceeded 5,000 entries, or contained a malformed address.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CodeErrorResponse"
+                },
+                "example": {
+                  "code": "invalid_input",
+                  "message": "A maximum of 5000 emails is allowed."
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "description": "Unexpected server error. Note this endpoint nests the message: `error` is an object, not a string.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "message": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "error": {
+                    "message": "Failed to create deletion request."
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/bot_conversations": {
+      "get": {
+        "summary": "List bot conversations",
+        "operationId": "listBotConversations",
+        "description": "> **Legacy.** Superseded by the [Conversations](#tag/Conversations), [Messages](#tag/Messages), and [Meetings](#tag/Meetings) endpoints, which cover everything here and more in a richer, more consistent form and are recommended for new integrations. This endpoint remains fully supported for existing integrations.\n\nReturns a visitor's bot conversations, each with its nested visitor, bot, messages, meetings, and AI goals. A bot conversation becomes available once the visitor's website session ends. Requires the reporting API to be enabled for the team.\n\nUnlike the rest of this API, responses are `snake_case` and page with `starting_after`/`limit` plus a `meta` block (not the cursor `pageInfo` used elsewhere).\n\n**Scope:** `legacy:view`\n",
+        "tags": [
+          "Bot Conversations"
+        ],
+        "parameters": [
+          {
+            "name": "starting_after",
+            "in": "query",
+            "description": "Opaque cursor. Pass the `meta.end_cursor` from the previous page. Omit for the first page.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum number of conversations to return. Defaults to the maximum.",
+            "schema": {
+              "type": "integer",
+              "default": 10000,
+              "maximum": 10000
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of bot conversations.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BotConversationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/LegacyBadRequest"
+          },
+          "401": {
+            "description": "Missing or invalid token, the API is not enabled for the team, or the token lacks `legacy:view`. Unlike the rest of this API, an insufficient scope here returns 401 rather than 403.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CodeErrorResponse"
+                },
+                "example": {
+                  "code": "invalid_token"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/v1/rep_conversations": {
+      "get": {
+        "summary": "List rep conversations",
+        "operationId": "listRepConversations",
+        "description": "> **Legacy.** Superseded by the [Conversations](#tag/Conversations), [Messages](#tag/Messages), and [Meetings](#tag/Meetings) endpoints, which cover everything here and more in a richer, more consistent form and are recommended for new integrations. This endpoint remains fully supported for existing integrations.\n\nReturns a visitor's conversations with a human rep, each with its nested visitor, rep, messages, meetings, and calls. A rep conversation becomes available once the visitor's website session ends. Requires the reporting API to be enabled for the team.\n\nUnlike the rest of this API, responses are `snake_case` and page with `starting_after`/`limit` plus a `meta` block (not the cursor `pageInfo` used elsewhere).\n\n**Scope:** `legacy:view`\n",
+        "tags": [
+          "Rep Conversations"
+        ],
+        "parameters": [
+          {
+            "name": "starting_after",
+            "in": "query",
+            "description": "Opaque cursor. Pass the `meta.end_cursor` from the previous page. Omit for the first page.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum number of conversations to return. Defaults to the maximum.",
+            "schema": {
+              "type": "integer",
+              "default": 10000,
+              "maximum": 10000
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of rep conversations.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RepConversationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/LegacyBadRequest"
+          },
+          "401": {
+            "description": "Missing or invalid token, the API is not enabled for the team, or the token lacks `legacy:view`. Unlike the rest of this API, an insufficient scope here returns 401 rather than 403.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CodeErrorResponse"
+                },
+                "example": {
+                  "code": "invalid_token"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerToken": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "Token"
+      }
+    },
+    "parameters": {
+      "After": {
+        "name": "after",
+        "in": "query",
+        "required": false,
+        "description": "Cursor for forward pagination. Pass the `endCursor` from the previous response.",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "Before": {
+        "name": "before",
+        "in": "query",
+        "required": false,
+        "description": "Cursor for backward pagination. Pass the `startCursor` from the previous response.",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "CreatedAfter": {
+        "name": "created_after",
+        "in": "query",
+        "required": false,
+        "description": "Return records created at or after this time. Accepts an ISO-8601 timestamp, interpreted as UTC unless it carries an offset. A bare date (`YYYY-MM-DD`) means midnight UTC at the start of that day.",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "CreatedBefore": {
+        "name": "created_before",
+        "in": "query",
+        "required": false,
+        "description": "Return records created at or before this time. Accepts an ISO-8601 timestamp, interpreted as UTC unless it carries an offset. A bare date (`YYYY-MM-DD`) means midnight UTC at the start of that day, so pass the next day's date to include a whole day.",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "UpdatedAfter": {
+        "name": "updated_after",
+        "in": "query",
+        "required": false,
+        "description": "Return records updated at or after this time. Interpreted as UTC unless an offset is given. A bare date (`YYYY-MM-DD`) means midnight UTC at the start of that day.",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "UpdatedBefore": {
+        "name": "updated_before",
+        "in": "query",
+        "required": false,
+        "description": "Return records updated at or before this time. Interpreted as UTC unless an offset is given. A bare date (`YYYY-MM-DD`) means midnight UTC at the start of that day, so pass the next day's date to include a whole day.",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "EndedAfter": {
+        "name": "ended_after",
+        "in": "query",
+        "required": false,
+        "description": "Return records that ended at or after this time. Interpreted as UTC unless an offset is given. A bare date (`YYYY-MM-DD`) means midnight UTC at the start of that day.",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "EndedBefore": {
+        "name": "ended_before",
+        "in": "query",
+        "required": false,
+        "description": "Return records that ended at or before this time. Interpreted as UTC unless an offset is given. A bare date (`YYYY-MM-DD`) means midnight UTC at the start of that day, so pass the next day's date to include a whole day.",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "Email": {
+        "name": "email",
+        "in": "query",
+        "required": false,
+        "description": "Return only the lead with this email address. Exact match, case-insensitive, with surrounding whitespace ignored.",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "LeadId": {
+        "name": "lead_id",
+        "in": "query",
+        "required": false,
+        "description": "Return only emails for this lead.",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "VisitorId": {
+        "name": "visitor_id",
+        "in": "query",
+        "required": false,
+        "description": "Return only records for this visitor, including activity recorded before the visitor was identified. To pull everything for one person, read the lead's `visitorIds` and query each in turn.",
+        "schema": {
+          "type": "string"
+        }
+      }
+    },
+    "schemas": {
+      "PageInfo": {
+        "type": "object",
+        "description": "Cursor-based pagination metadata.",
+        "properties": {
+          "hasNextPage": {
+            "type": "boolean",
+            "description": "Whether more results exist after `endCursor`."
+          },
+          "hasPreviousPage": {
+            "type": "boolean",
+            "description": "Whether more results exist before `startCursor`."
+          },
+          "startCursor": {
+            "type": "string",
+            "nullable": true,
+            "description": "Cursor for the first item on this page."
+          },
+          "endCursor": {
+            "type": "string",
+            "nullable": true,
+            "description": "Cursor for the last item on this page."
+          }
+        }
+      },
+      "Lead": {
+        "type": "object",
+        "description": "A lead (person) record, keyed on email, with its custom field values.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Encoded lead identifier."
+          },
+          "email": {
+            "type": "string",
+            "description": "Lead email address."
+          },
+          "fields": {
+            "type": "object",
+            "description": "Custom field values keyed by field API name. Includes fields hidden in the Qualified UI. Values are typed by field: booleans for checkboxes, numbers for numeric fields, arrays of strings for multi-select fields, otherwise strings. An unset field is `null`.\n",
+            "additionalProperties": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the lead was created."
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the lead was last updated. Advances on email changes, custom field-value changes, when a new visitor is associated with the lead, and when a company write changes an account-level field this lead inherits."
+          },
+          "visitorIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Encoded ids of the visitors that belong to this lead, one per browser or device the person has been seen on. This is how sessions, conversations, and meetings resolve to a person. Match an activity's `visitorId` against this array, which also attaches activity recorded before the visitor was identified. Returned as an empty array (never null) when there are none."
+          },
+          "salesforceLeadId": {
+            "type": "string",
+            "nullable": true,
+            "description": "Salesforce Lead ID, returned verbatim (not encoded). Sourced from the lead's most recent session attributes; may briefly lag the source system."
+          },
+          "salesforceContactId": {
+            "type": "string",
+            "nullable": true,
+            "description": "Salesforce Contact ID, returned verbatim."
+          },
+          "pardotProspectId": {
+            "type": "string",
+            "nullable": true,
+            "description": "Pardot Prospect ID, returned verbatim."
+          },
+          "marketoLeadId": {
+            "type": "string",
+            "nullable": true,
+            "description": "Marketo Lead ID, returned verbatim."
+          },
+          "hubspotContactId": {
+            "type": "string",
+            "nullable": true,
+            "description": "HubSpot Contact ID, returned verbatim."
+          },
+          "eloquaContactId": {
+            "type": "string",
+            "nullable": true,
+            "description": "Eloqua Contact ID, returned verbatim."
+          }
+        }
+      },
+      "Field": {
+        "type": "object",
+        "description": "A custom field definition.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Encoded field identifier."
+          },
+          "label": {
+            "type": "string",
+            "description": "Human-readable field label."
+          },
+          "type": {
+            "type": "string",
+            "description": "Field data type: `string`, `text`, `decimal`, `boolean`, `email`, `phone`, `name`, `company`, `picklist`, `multi_picklist`, or `text_array`. Numeric fields are `decimal` — there is no `number` type. `multi_picklist` and `text_array` are returned only for teams with multi-select fields enabled."
+          },
+          "name": {
+            "type": "string",
+            "description": "Field API name, the key used in the `fields` object."
+          },
+          "options": {
+            "type": "array",
+            "description": "Picklist options. Present only when `type` is `picklist`.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "value": {
+                  "type": "string",
+                  "description": "Stored option value."
+                },
+                "label": {
+                  "type": "string",
+                  "description": "Option display label."
+                }
+              }
+            }
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the field was created."
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the field was last updated."
+          }
+        }
+      },
+      "Company": {
+        "type": "object",
+        "description": "A company (account) record. Returned only from the upsert response.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Encoded company identifier."
+          },
+          "domain": {
+            "type": "string",
+            "description": "Normalized company domain."
+          },
+          "name": {
+            "type": "string",
+            "nullable": true,
+            "description": "Company name."
+          },
+          "fields": {
+            "type": "object",
+            "description": "Account-category custom field values keyed by field API name.",
+            "additionalProperties": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the company was created."
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the company was last updated."
+          }
+        }
+      },
+      "Session": {
+        "type": "object",
+        "description": "A visitor's website session, with its page views and the conversations and meetings that occurred in it.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Encoded session identifier."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the session started."
+          },
+          "endedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "When the session ended."
+          },
+          "visitorId": {
+            "type": "string",
+            "description": "Encoded id of the visitor this session belongs to. Always present and immutable, so it is the durable key for a session whether or not the visitor is identified. Match it against a lead's `visitorIds` to resolve the session to a person."
+          },
+          "visitor": {
+            "type": "object",
+            "nullable": true,
+            "description": "A point-in-time snapshot of the visitor as of this session, so anonymous sessions still carry the data captured during them. Present when visitor data is available.",
+            "properties": {
+              "email": {
+                "type": "string",
+                "nullable": true,
+                "description": "Visitor email. Null while the visitor is anonymous; set once the visitor is identified. Also available on the associated lead."
+              },
+              "fields": {
+                "type": "object",
+                "additionalProperties": true,
+                "description": "Visitor field values captured during the session (for example the answers the visitor gave), keyed by field API name."
+              },
+              "salesforceLeadId": {
+                "type": "string",
+                "nullable": true,
+                "description": "Salesforce Lead ID, returned verbatim (not encoded)."
+              },
+              "salesforceContactId": {
+                "type": "string",
+                "nullable": true,
+                "description": "Salesforce Contact ID, returned verbatim (not encoded)."
+              },
+              "pardotProspectId": {
+                "type": "string",
+                "nullable": true,
+                "description": "Pardot Prospect ID, returned verbatim (not encoded)."
+              },
+              "marketoLeadId": {
+                "type": "string",
+                "nullable": true,
+                "description": "Marketo Lead ID, returned verbatim (not encoded)."
+              },
+              "hubspotContactId": {
+                "type": "string",
+                "nullable": true,
+                "description": "HubSpot Contact ID, returned verbatim (not encoded)."
+              },
+              "eloquaContactId": {
+                "type": "string",
+                "nullable": true,
+                "description": "Eloqua Contact ID, returned verbatim (not encoded)."
+              }
+            }
+          },
+          "userAgent": {
+            "type": "object",
+            "description": "Browser user-agent information.",
+            "properties": {
+              "string": {
+                "type": "string",
+                "description": "Raw user-agent string."
+              },
+              "deviceType": {
+                "type": "string",
+                "description": "Detected device type."
+              }
+            }
+          },
+          "conversationIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Encoded ids of the engaged conversations in this session."
+          },
+          "pageViews": {
+            "type": "array",
+            "description": "Pages viewed during the session.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "baseUrl": {
+                  "type": "string",
+                  "description": "Page URL with the query string and fragment removed (scheme, host, and path only)."
+                },
+                "createdAt": {
+                  "type": "string",
+                  "format": "date-time",
+                  "description": "When the page was viewed."
+                },
+                "endedAt": {
+                  "type": "string",
+                  "format": "date-time",
+                  "nullable": true,
+                  "description": "When the visitor left the page."
+                },
+                "utmSource": {
+                  "type": "string",
+                  "nullable": true,
+                  "description": "UTM source."
+                },
+                "utmMedium": {
+                  "type": "string",
+                  "nullable": true,
+                  "description": "UTM medium."
+                },
+                "utmCampaign": {
+                  "type": "string",
+                  "nullable": true,
+                  "description": "UTM campaign."
+                },
+                "utmTerm": {
+                  "type": "string",
+                  "nullable": true,
+                  "description": "UTM term."
+                },
+                "utmContent": {
+                  "type": "string",
+                  "nullable": true,
+                  "description": "UTM content."
+                },
+                "referrer": {
+                  "type": "string",
+                  "nullable": true,
+                  "description": "Referring URL."
+                }
+              }
+            }
+          },
+          "meetingIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Encoded ids of meetings offered during this session. Not scoped to engaged conversations."
+          }
+        }
+      },
+      "Conversation": {
+        "type": "object",
+        "description": "An engaged chat conversation between a visitor and a rep, bot, or AI assistant.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Encoded conversation identifier."
+          },
+          "sessionId": {
+            "type": "string",
+            "description": "Encoded id of the parent session."
+          },
+          "meetingIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Encoded ids of meetings offered in this conversation. Empty when none."
+          },
+          "experienceName": {
+            "type": "string",
+            "nullable": true,
+            "description": "Name of the bot experience, if any."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the conversation started."
+          },
+          "endedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "When the conversation ended."
+          },
+          "userId": {
+            "type": "string",
+            "nullable": true,
+            "description": "Encoded id of the rep who participated. Null unless a rep joined, which is uncommon."
+          },
+          "visitorId": {
+            "type": "string",
+            "description": "Encoded id of the visitor this conversation belongs to. Always present and immutable, so it is the durable key whether or not the visitor is identified. Match it against a lead's `visitorIds` to resolve the conversation to a person."
+          }
+        }
+      },
+      "Message": {
+        "type": "object",
+        "description": "A single message within a conversation. Messages are immutable.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Encoded message identifier."
+          },
+          "type": {
+            "type": "string",
+            "description": "Message type, e.g. text. `event`-type messages are never returned."
+          },
+          "text": {
+            "type": "string",
+            "description": "Message text."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the message was sent."
+          },
+          "senderType": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "user",
+              "visitor",
+              "experience",
+              "ai_profile"
+            ],
+            "description": "Who sent the message. Null if the sender cannot be resolved."
+          },
+          "senderName": {
+            "type": "string",
+            "nullable": true,
+            "description": "Display name of the sender. Null for visitors and where no name is available."
+          },
+          "conversationId": {
+            "type": "string",
+            "description": "Encoded id of the conversation this message belongs to."
+          }
+        }
+      },
+      "Meeting": {
+        "type": "object",
+        "description": "A meeting offered or booked with a visitor.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Encoded meeting identifier."
+          },
+          "sessionId": {
+            "type": "string",
+            "nullable": true,
+            "description": "Encoded id of the parent session. Null when the parent session is not exposed on `/v2/sessions`, such as a live-booking session or a session reached through a meeting link (including routed meeting links)."
+          },
+          "conversationId": {
+            "type": "string",
+            "nullable": true,
+            "description": "Encoded id of the parent conversation. Null when the meeting is not tied to an engaged conversation, such as a meeting booked through a direct or routed meeting link, or via live booking."
+          },
+          "visitorId": {
+            "type": "string",
+            "description": "Encoded id of the visitor the meeting belongs to. Always present and immutable, including for meetings booked outside a website session, such as through a direct or routed meeting link or via live booking. Match it against a lead's `visitorIds` to resolve the meeting to a person."
+          },
+          "attendees": {
+            "type": "array",
+            "description": "Meeting attendees.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "Attendee name."
+                },
+                "email": {
+                  "type": "string",
+                  "description": "Attendee email."
+                },
+                "organizer": {
+                  "type": "boolean",
+                  "description": "Whether this attendee is the organizer."
+                },
+                "owner": {
+                  "type": "boolean",
+                  "description": "Whether this attendee is the owner."
+                }
+              }
+            }
+          },
+          "meetingTypeName": {
+            "type": "string",
+            "nullable": true,
+            "description": "Name of the meeting type."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the meeting was created."
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the meeting was last updated. Reflects reschedule, cancel, and no-show transitions."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "offered",
+              "booked",
+              "rescheduled",
+              "canceled",
+              "no_show"
+            ],
+            "description": "Current meeting status."
+          },
+          "channel": {
+            "type": "string",
+            "nullable": true,
+            "description": "Human-readable label for how the meeting was offered, or null when it cannot be determined. Current values: `Direct Meeting Links`, `Routed Meeting Links`, `Conversation with Rep`, `Live Booker`, `Smart Form Experiences`, `Smart Button Experiences`, `Manual Experiences`, `Automatic Experiences`. Treat it as a display string rather than a fixed code, since new labels may appear. `Live Booker` corresponds to live booking, and `Direct Meeting Links` / `Routed Meeting Links` to direct and routed meeting links."
+          }
+        }
+      },
+      "Email": {
+        "type": "object",
+        "description": "An outbound email activity associated with a lead.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Encoded email identifier."
+          },
+          "parentEmailId": {
+            "type": "string",
+            "nullable": true,
+            "description": "Encoded id of the parent email in the thread."
+          },
+          "subject": {
+            "type": "string",
+            "description": "Email subject line."
+          },
+          "provider": {
+            "type": "string",
+            "description": "Sending provider."
+          },
+          "status": {
+            "type": "string",
+            "description": "Delivery status. Only sent and bounced mailings are returned."
+          },
+          "leadId": {
+            "type": "string",
+            "nullable": true,
+            "description": "Encoded id of the lead this email was sent to, or null if unresolved. Emails are addressed to a person rather than a browser, so `leadId` is the identity key here and there is no `visitorId`."
+          },
+          "campaignName": {
+            "type": "string",
+            "nullable": true,
+            "description": "Campaign name, if part of a campaign."
+          },
+          "senderEmail": {
+            "type": "string",
+            "nullable": true,
+            "description": "Sender email address."
+          },
+          "recipientEmail": {
+            "type": "string",
+            "nullable": true,
+            "description": "Recipient email address."
+          },
+          "body": {
+            "type": "string",
+            "nullable": true,
+            "description": "Email body content."
+          },
+          "mailingType": {
+            "type": "string",
+            "nullable": true,
+            "description": "Type of mailing."
+          },
+          "sentAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "When the email was sent."
+          },
+          "openedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "When the email was most recently opened."
+          },
+          "repliedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "When the email was most recently replied to."
+          },
+          "clickedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "When a link in the email was most recently clicked."
+          },
+          "bouncedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "When the bounce was reported."
+          },
+          "bounceType": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "soft_bounce",
+              "hard_bounce"
+            ],
+            "description": "Type of bounce."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the email record was created."
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the email was last updated. Advances on opens, clicks, replies, and bounces."
+          }
+        }
+      },
+      "BulkJob": {
+        "type": "object",
+        "description": "An asynchronous batch of write operations.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Encoded job identifier."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "enqueued",
+              "processing",
+              "completed",
+              "failed"
+            ],
+            "description": "Current job status."
+          },
+          "totalRecords": {
+            "type": "integer",
+            "description": "Total number of items in the batch."
+          },
+          "processedRecords": {
+            "type": "integer",
+            "description": "Items processed so far."
+          },
+          "failedRecords": {
+            "type": "integer",
+            "description": "Items that failed processing."
+          },
+          "result": {
+            "type": "array",
+            "description": "Per-item outcomes, each correlating to a submitted `request_id`.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "requestId": {
+                  "type": "string",
+                  "description": "The caller-supplied id from the request. Note the asymmetry: you send `request_id` in the request body and read `requestId` back here."
+                },
+                "status": {
+                  "type": "string",
+                  "description": "Outcome for this item: `completed` or `failed`."
+                },
+                "operation": {
+                  "type": "string",
+                  "description": "The operation that was performed."
+                },
+                "errors": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Error messages, if the item failed."
+                }
+              }
+            }
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the job was created."
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the job was last updated."
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "Human-readable error message."
+          }
+        }
+      },
+      "CodeErrorResponse": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Machine-readable error code."
+          },
+          "message": {
+            "type": "string",
+            "description": "Human-readable error message."
+          }
+        }
+      },
+      "ValidationErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "Human-readable error message."
+          },
+          "details": {
+            "type": "object",
+            "description": "Structured context identifying what was rejected, for example the offending field under `failed_field`. Keys vary by failure.",
+            "additionalProperties": true
+          }
+        }
+      },
+      "MessageResponse": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "Human-readable status message."
+          }
+        }
+      },
+      "GdprDeletionRequest": {
+        "type": "object",
+        "required": [
+          "emails"
+        ],
+        "properties": {
+          "emails": {
+            "type": "array",
+            "description": "Email addresses to delete. Up to 5,000 per request; every address must be well-formed or the whole request is rejected.",
+            "maxItems": 5000,
+            "items": {
+              "type": "string",
+              "format": "email"
+            }
+          }
+        }
+      },
+      "LegacyVisitor": {
+        "type": "object",
+        "description": "A visitor, as returned by the legacy reporting endpoints.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Encoded visitor id."
+          },
+          "email": {
+            "type": "string",
+            "nullable": true,
+            "description": "Visitor email, or null if unknown."
+          },
+          "salesforce_lead_id": {
+            "type": "string",
+            "nullable": true,
+            "description": "Salesforce lead id, returned verbatim (not encoded)."
+          },
+          "salesforce_contact_id": {
+            "type": "string",
+            "nullable": true,
+            "description": "Salesforce contact id, returned verbatim (not encoded)."
+          },
+          "pardot_prospect_id": {
+            "type": "string",
+            "nullable": true,
+            "description": "Pardot prospect id, returned verbatim (not encoded)."
+          },
+          "marketo_lead_id": {
+            "type": "string",
+            "nullable": true,
+            "description": "Marketo lead id, returned verbatim (not encoded)."
+          },
+          "hubspot_contact_id": {
+            "type": "string",
+            "nullable": true,
+            "description": "HubSpot contact id, returned verbatim (not encoded)."
+          },
+          "eloqua_contact_id": {
+            "type": "string",
+            "nullable": true,
+            "description": "Eloqua contact id, returned verbatim (not encoded)."
+          }
+        }
+      },
+      "LegacyBot": {
+        "type": "object",
+        "description": "A bot, as returned by the legacy reporting endpoints.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Encoded bot id."
+          },
+          "name": {
+            "type": "string",
+            "description": "Bot name."
+          }
+        }
+      },
+      "LegacyUser": {
+        "type": "object",
+        "description": "A rep, as returned by the legacy reporting endpoints.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Encoded user id."
+          },
+          "email": {
+            "type": "string",
+            "description": "Rep email."
+          },
+          "name": {
+            "type": "string",
+            "description": "Rep name."
+          }
+        }
+      },
+      "LegacyMessage": {
+        "type": "object",
+        "description": "A message within a legacy bot or rep conversation.",
+        "properties": {
+          "sent_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the message was sent."
+          },
+          "ai": {
+            "type": "boolean",
+            "description": "True if the message was sent by AI."
+          },
+          "visitor_id": {
+            "type": "string",
+            "nullable": true,
+            "description": "Encoded id of the visitor who sent it, or null."
+          },
+          "bot_id": {
+            "type": "string",
+            "nullable": true,
+            "description": "Encoded id of the bot that sent it, or null."
+          },
+          "user_id": {
+            "type": "string",
+            "nullable": true,
+            "description": "Encoded id of the rep who sent it, or null."
+          },
+          "text": {
+            "type": "string",
+            "description": "Message text."
+          }
+        }
+      },
+      "LegacyMeeting": {
+        "type": "object",
+        "description": "A meeting within a legacy bot or rep conversation.",
+        "properties": {
+          "offer_sent_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the meeting offer was sent."
+          },
+          "ai": {
+            "type": "boolean",
+            "description": "True if the meeting was offered by AI."
+          },
+          "booked_user": {
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LegacyUser"
+              }
+            ],
+            "nullable": true,
+            "description": "The rep the meeting was booked with, or null if no meeting was booked."
+          }
+        }
+      },
+      "LegacyCall": {
+        "type": "object",
+        "description": "A voice call within a legacy rep conversation.",
+        "properties": {
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the call started."
+          },
+          "ended_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the call ended."
+          }
+        }
+      },
+      "LegacyAiGoal": {
+        "type": "object",
+        "description": "An AI goal within a legacy bot conversation.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Encoded AI goal id."
+          },
+          "name": {
+            "type": "string",
+            "description": "AI goal name."
+          },
+          "completed": {
+            "type": "boolean",
+            "description": "True if the goal was completed."
+          }
+        }
+      },
+      "LegacyPageMeta": {
+        "type": "object",
+        "description": "Pagination metadata for the legacy reporting endpoints.",
+        "properties": {
+          "has_more": {
+            "type": "boolean",
+            "description": "True if more conversations can be fetched after this page."
+          },
+          "end_cursor": {
+            "type": "string",
+            "description": "Object id of the last conversation in this page. Pass as `starting_after` to fetch the next page."
+          }
+        }
+      },
+      "BotConversation": {
+        "type": "object",
+        "description": "A visitor's conversation with a bot (legacy reporting).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Encoded bot conversation id."
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the bot conversation started."
+          },
+          "ai_started_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the AI portion of the conversation started."
+          },
+          "ai_captured_email": {
+            "type": "boolean",
+            "description": "True if the AI captured an email address during the conversation."
+          },
+          "visitor": {
+            "$ref": "#/components/schemas/LegacyVisitor"
+          },
+          "bot": {
+            "$ref": "#/components/schemas/LegacyBot"
+          },
+          "rep_conversation_id": {
+            "type": "string",
+            "nullable": true,
+            "description": "Encoded id of the rep conversation that resulted from this bot conversation, or null."
+          },
+          "salesforce_lead_captured_by_bot": {
+            "type": "boolean",
+            "description": "True if the bot created a Salesforce lead for the visitor."
+          },
+          "pardot_prospect_captured_by_bot": {
+            "type": "boolean",
+            "description": "True if the bot created a Pardot prospect for the visitor."
+          },
+          "marketo_lead_captured_by_bot": {
+            "type": "boolean",
+            "description": "True if the bot created a Marketo lead for the visitor."
+          },
+          "eloqua_contact_captured_by_bot": {
+            "type": "boolean",
+            "description": "True if the bot created an Eloqua contact for the visitor."
+          },
+          "meetings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LegacyMeeting"
+            }
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LegacyMessage"
+            }
+          },
+          "ai_goals": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LegacyAiGoal"
+            }
+          }
+        }
+      },
+      "RepConversation": {
+        "type": "object",
+        "description": "A visitor's conversation with a human rep (legacy reporting).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Encoded rep conversation id."
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the rep conversation started."
+          },
+          "visitor": {
+            "$ref": "#/components/schemas/LegacyVisitor"
+          },
+          "user": {
+            "$ref": "#/components/schemas/LegacyUser"
+          },
+          "bot_conversation_id": {
+            "type": "string",
+            "nullable": true,
+            "description": "Encoded id of the bot conversation that led to this rep conversation, or null."
+          },
+          "salesforce_lead_captured_by_rep": {
+            "type": "boolean",
+            "description": "True if the rep created a Salesforce lead for the visitor."
+          },
+          "pardot_prospect_captured_by_rep": {
+            "type": "boolean",
+            "description": "True if the rep created a Pardot prospect for the visitor."
+          },
+          "marketo_lead_captured_by_rep": {
+            "type": "boolean",
+            "description": "True if the rep created a Marketo lead for the visitor."
+          },
+          "eloqua_contact_captured_by_rep": {
+            "type": "boolean",
+            "description": "True if the rep created an Eloqua contact for the visitor."
+          },
+          "meetings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LegacyMeeting"
+            }
+          },
+          "calls": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LegacyCall"
+            }
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LegacyMessage"
+            }
+          }
+        }
+      },
+      "BotConversationResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BotConversation"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/LegacyPageMeta"
+          }
+        }
+      },
+      "RepConversationResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RepConversation"
+            }
+          },
+          "meta": {
+            "$ref": "#/components/schemas/LegacyPageMeta"
+          }
+        }
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "Malformed request, such as an invalid date or cursor.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "Missing or invalid token, or the API is not enabled for the team.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/CodeErrorResponse"
+            },
+            "example": {
+              "code": "invalid_token"
+            }
+          }
+        }
+      },
+      "Forbidden": {
+        "description": "The token lacks the required OAuth scope.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/CodeErrorResponse"
+            },
+            "example": {
+              "code": "insufficient_scope"
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "The record was not found, or the id could not be decoded.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                {
+                  "$ref": "#/components/schemas/CodeErrorResponse"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "UnprocessableEntity": {
+        "description": "The write was rejected, for example an unknown field, an invalid value, or a malformed batch.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ValidationErrorResponse"
+            }
+          }
+        }
+      },
+      "TooManyRequests": {
+        "description": "A rate limit was exceeded. The three time-window limits set a `Retry-After` header; the concurrency limit does not, so treat its absence as \"retry once an in-flight request finishes\".",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/CodeErrorResponse"
+            },
+            "example": {
+              "code": "rate_limited",
+              "message": "Enterprise API rate limit exceeded"
+            }
+          }
+        }
+      },
+      "InternalServerError": {
+        "description": "Unexpected server error.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "error": "Internal server error"
+            }
+          }
+        }
+      },
+      "LegacyBadRequest": {
+        "description": "Invalid `limit` or `starting_after`. The legacy endpoints return a `code`/`message` body rather than the `error` body used elsewhere.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/CodeErrorResponse"
+            },
+            "example": {
+              "code": "invalid_limit",
+              "message": ""
+            }
+          }
+        }
+      },
+      "BulkBadRequest": {
+        "description": "Malformed bulk request.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/CodeErrorResponse"
+            },
+            "example": {
+              "code": "bad_request",
+              "message": "Invalid request"
+            }
+          }
+        }
+      },
+      "BulkInvalidItems": {
+        "description": "The batch was rejected, for example `items` is missing, not an array, or outside the 1–500 range.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/CodeErrorResponse"
+            },
+            "example": {
+              "code": "invalid_items",
+              "message": "items must be an array with size 1..500"
+            }
+          }
+        }
+      }
+    }
+  }
+}

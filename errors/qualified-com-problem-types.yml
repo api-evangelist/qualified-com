@@ -1,0 +1,101 @@
+generated: '2026-08-26'
+method: searched
+source: https://app.qualified.com/docs/api
+derived_from: openapi/qualified-com-enterprise-api-openapi.json
+api: qualified-com-enterprise-api
+format: vendor-json
+rfc9457: false
+content_type: application/json
+note: >-
+  Qualified does not use application/problem+json. Error bodies deliberately vary by
+  status and by endpoint; the published reference instructs clients to "read `error`,
+  `code`, and `message` defensively rather than branching on one key". The catalog below
+  pairs the documented status table with the response examples declared in the spec.
+envelope_shapes:
+- shape: '{"error": "..."}'
+  used_by: [400, 404, 422, 500]
+- shape: '{"code": "...", "message": "..."}'
+  used_by: [400 (bulk), 401, 403, 404, 422 (bulk), 429]
+- shape: '{"error": "...", "details": {"failed_field": "..."}}'
+  used_by: [422]
+- shape: '{"message": "..."}'
+  used_by: [404 (cancel meeting)]
+problem_types:
+- status: 400
+  code: null
+  title: Malformed request
+  meaning: >-
+    A bad date, cursor, or filter value, or a time window that starts inside a resource's
+    availability hold.
+  body: '{"error": "..."}  (bulk endpoints: {"code","message"})'
+  remediation: Fix the request parameters and retry. A rejected cursor means restart the window.
+- status: 400
+  code: missing_salesforce_event_id
+  title: salesforce_event_id is required
+  operation: cancelMeeting
+  body: '{"code": "missing_salesforce_event_id", "message": "salesforce_event_id is required"}'
+  remediation: Supply the Salesforce Event ID of the meeting to cancel.
+- status: 400
+  code: missing_emails
+  title: No valid emails provided
+  operation: createGdprDeletionRequest
+  body: '{"code": "missing_emails", "message": "No valid emails provided."}'
+  remediation: Include a non-empty `emails` array in the request body.
+- status: 401
+  code: invalid_token
+  title: Missing or invalid token
+  meaning: The bearer token is absent or invalid, OR the API is not enabled for the team.
+  body: '{"code": "invalid_token"}'
+  remediation: >-
+    Check the token, and check that the Enterprise API is enabled for the team — a valid
+    key on a team without API entitlement fails the same way.
+- status: 403
+  code: insufficient_scope
+  title: Token lacks the required scope
+  body: '{"code": "insufficient_scope"}'
+  remediation: Re-mint the key with the scope the endpoint needs. See scopes/qualified-com-scopes.yml.
+- status: 404
+  code: not_found
+  title: Record not found
+  meaning: The record does not exist, or a path id could not be decoded.
+  body: 'varies: {"error": "..."} | {"code": "not_found", "message": "..."} | {"message": "..."}'
+  remediation: Treat the record as gone and do not retry.
+- status: 422
+  code: null
+  title: Write rejected
+  meaning: An unknown field, an invalid value, or a malformed batch.
+  body: '{"error": "...", "details": ...}  (bulk: {"code","message"})'
+  remediation: >-
+    When a single field is rejected, details.failed_field names it. Fix that field or
+    value and resubmit.
+- status: 422
+  code: invalid_input
+  title: Invalid emails payload
+  operation: createGdprDeletionRequest
+  meaning: '`emails` was not an array, exceeded 5,000 entries, or contained a malformed address.'
+  remediation: Send a well-formed array of at most 5,000 valid addresses. One bad address rejects the whole request.
+- status: 422
+  code: null
+  title: Meeting was already canceled
+  operation: cancelMeeting
+  remediation: >-
+    Treat as already-reversed rather than as a failure. Cancellation is not idempotent —
+    a repeat call errors instead of succeeding silently.
+- status: 429
+  code: rate_limited
+  title: Rate limit exceeded
+  body: '{"code": "rate_limited", "message": "..."}'
+  remediation: >-
+    Back off for Retry-After seconds. A 429 WITHOUT Retry-After is the concurrency limit —
+    retry once an in-flight request completes, and keep concurrency at or below 10.
+- status: 500
+  code: null
+  title: Unexpected server error
+  body: '{"error": "Internal server error"}'
+  remediation: Retry with backoff; if it persists, contact support.
+partial_failure:
+  operation: createBulkJob
+  note: >-
+    POST /v2/bulk returns 202 confirming the batch was accepted; individual items within it
+    can still fail. Confirm per-item outcomes by reading `failedRecords` and the `errors` on
+    each entry in the job's `result` array. A 202 is not a success signal for the records.

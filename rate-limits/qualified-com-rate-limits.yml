@@ -1,0 +1,52 @@
+generated: '2026-08-26'
+method: searched
+source: https://app.qualified.com/docs/api
+docs: https://app.qualified.com/docs/api
+api: qualified-com-enterprise-api
+scope_note: All limits are enforced per team (per Qualified account), not per API key.
+limit_count: 4
+limits:
+- name: Concurrent requests
+  scope: per-account
+  window: concurrent
+  limit: 10
+  note: >-
+    Exceeding concurrency returns 429 WITHOUT Retry-After or RateLimit-* headers.
+    A 429 with no Retry-After means "retry once a request in flight completes".
+- name: Requests per 15 minutes
+  scope: per-account
+  window: 15m
+  limit: 2000
+  note: This is the only window described by the RateLimit-* response headers.
+- name: Requests per hour
+  scope: per-account
+  window: 1h
+  limit: 7000
+- name: Requests per day
+  scope: per-account
+  window: 24h
+  limit: 120000
+headers:
+- name: RateLimit-Limit
+  description: Ceiling for the 15-minute window.
+- name: RateLimit-Remaining
+  description: Requests left in the 15-minute window.
+- name: RateLimit-Reset
+  description: Epoch seconds at which the 15-minute window resets.
+- name: Retry-After
+  description: >-
+    Seconds to back off. Returned on the three time-window limits only; absent on
+    the concurrency limit.
+exhaustion:
+  status: 429
+  body: '{"code": "rate_limited", "message": "..."}'
+  note: >-
+    The RateLimit-* headers describe the 15-minute tier only, so a caller can have
+    remaining quota there and still be rejected by the hourly or daily tier.
+related_limits:
+- name: Page size
+  value: 1000
+  note: Fixed maximum records per page on every list endpoint; not caller-adjustable.
+- name: GDPR deletion batch
+  value: 5000
+  note: Maximum email addresses per POST /v2/gdpr_deletion_requests.
