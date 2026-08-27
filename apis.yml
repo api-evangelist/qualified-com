@@ -37,29 +37,178 @@ tags:
 - Salesforce
 - Analytics
 apis:
-- aid: qualified-com-enterprise-api
-  name: Qualified Enterprise API
-  description: 'The Qualified Enterprise API (v2) connects Qualified data to a warehouse,
-    CDP or downstream system. It exposes leads, website sessions, conversations, messages,
-    meetings and outbound emails as readable resources, and accepts writes back to
-    Qualified for leads and companies individually or through a bulk job. Reads follow
-    a pull model over a time window with cursor pagination; writes are scoped by named
-    permissions on the API key. Two legacy /v1 reporting endpoints for bot and rep
-    conversations remain supported.'
+- aid: qualified-com:qualified-com-bot-conversations-api
+  name: Qualified Bot Conversations API
+  description: >-
+    (Legacy) A visitor's conversations with a bot, in a self-contained shape. Superseded by the Conversations
+    and Messages endpoints, which are recommended for new integrations, and remains fully supported for
+    existing ones.
+  humanURL: https://www.qualified.com/api
+  baseURL: https://api.qualified.com
+  tags:
+  - Bot Conversations
+  properties:
+  - type: OpenAPI
+    url: openapi/qualified-com-bot-conversations-api-openapi.yml
+  - type: APIReference
+    url: https://www.qualified.com/api
+  - type: Documentation
+    url: https://app.qualified.com/docs/api
+- aid: qualified-com:qualified-com-bulk-api
+  name: Qualified Bulk API
+  description: Submit batches of writes for asynchronous processing.
+  humanURL: https://www.qualified.com/api
+  baseURL: https://api.qualified.com
+  tags:
+  - Bulk
+  properties:
+  - type: OpenAPI
+    url: openapi/qualified-com-bulk-api-openapi.yml
+  - type: APIReference
+    url: https://www.qualified.com/api
+  - type: Documentation
+    url: https://app.qualified.com/docs/api
+- aid: qualified-com:qualified-com-cancel-meeting-api
+  name: Qualified Cancel Meeting API
+  description: Cancel a booked meeting by its Salesforce Event ID.
+  humanURL: https://www.qualified.com/api
+  baseURL: https://api.qualified.com
+  tags:
+  - Cancel Meeting
+  properties:
+  - type: OpenAPI
+    url: openapi/qualified-com-cancel-meeting-api-openapi.yml
+  - type: APIReference
+    url: https://www.qualified.com/api
+  - type: Documentation
+    url: https://app.qualified.com/docs/api
+- aid: qualified-com:qualified-com-companies-api
+  name: Qualified Companies API
+  description: Create and update accounts by domain. Companies cannot be read back.
+  humanURL: https://www.qualified.com/api
+  baseURL: https://api.qualified.com
+  tags:
+  - Companies
+  properties:
+  - type: OpenAPI
+    url: openapi/qualified-com-companies-api-openapi.yml
+  - type: APIReference
+    url: https://www.qualified.com/api
+  - type: Documentation
+    url: https://app.qualified.com/docs/api
+- aid: qualified-com:qualified-com-conversations-api
+  name: Qualified Conversations API
+  description: >-
+    Engaged chat conversations, meaning the visitor exchanged messages with a rep, bot, or AI assistant.
+  humanURL: https://www.qualified.com/api
+  baseURL: https://api.qualified.com
+  tags:
+  - Conversations
+  properties:
+  - type: OpenAPI
+    url: openapi/qualified-com-conversations-api-openapi.yml
+  - type: APIReference
+    url: https://www.qualified.com/api
+  - type: Documentation
+    url: https://app.qualified.com/docs/api
+- aid: qualified-com:qualified-com-emails-api
+  name: Qualified Emails API
+  description: Outbound email activity sent from Qualified, with engagement timestamps.
+  humanURL: https://www.qualified.com/api
+  baseURL: https://api.qualified.com
+  tags:
+  - Emails
+  properties:
+  - type: OpenAPI
+    url: openapi/qualified-com-emails-api-openapi.yml
+  - type: APIReference
+    url: https://www.qualified.com/api
+  - type: Documentation
+    url: https://app.qualified.com/docs/api
+- aid: qualified-com:qualified-com-gdpr-api
+  name: Qualified GDPR API
+  description: Submit GDPR deletion requests by email.
+  humanURL: https://www.qualified.com/api
+  baseURL: https://api.qualified.com
+  tags:
+  - GDPR
+  properties:
+  - type: OpenAPI
+    url: openapi/qualified-com-gdpr-api-openapi.yml
+  - type: APIReference
+    url: https://www.qualified.com/api
+  - type: Documentation
+    url: https://app.qualified.com/docs/api
+- aid: qualified-com:qualified-com-leads-api
+  name: Qualified Leads API
+  description: Create, update, and read lead (person) records and their custom field values.
   humanURL: https://www.qualified.com/api
   baseURL: https://api.qualified.com
   tags:
   - Leads
-  - Companies
-  - Sessions
-  - Conversations
-  - Messages
-  - Meetings
-  - Emails
-  - Reporting
   properties:
   - type: OpenAPI
-    url: openapi/qualified-com-enterprise-api-openapi.json
+    url: openapi/qualified-com-leads-api-openapi.yml
+  - type: APIReference
+    url: https://www.qualified.com/api
+  - type: Documentation
+    url: https://app.qualified.com/docs/api
+- aid: qualified-com:qualified-com-meetings-api
+  name: Qualified Meetings API
+  description: Meetings offered or booked with a visitor.
+  humanURL: https://www.qualified.com/api
+  baseURL: https://api.qualified.com
+  tags:
+  - Meetings
+  properties:
+  - type: OpenAPI
+    url: openapi/qualified-com-meetings-api-openapi.yml
+  - type: APIReference
+    url: https://www.qualified.com/api
+  - type: Documentation
+    url: https://app.qualified.com/docs/api
+- aid: qualified-com:qualified-com-messages-api
+  name: Qualified Messages API
+  description: Individual messages, either across all conversations or within one.
+  humanURL: https://www.qualified.com/api
+  baseURL: https://api.qualified.com
+  tags:
+  - Messages
+  properties:
+  - type: OpenAPI
+    url: openapi/qualified-com-messages-api-openapi.yml
+  - type: APIReference
+    url: https://www.qualified.com/api
+  - type: Documentation
+    url: https://app.qualified.com/docs/api
+- aid: qualified-com:qualified-com-rep-conversations-api
+  name: Qualified Rep Conversations API
+  description: >-
+    (Legacy) A visitor's conversations with a human rep, in a self-contained shape. Superseded by the
+    Conversations and Messages endpoints, which are recommended for new integrations, and remains fully
+    supported for existing ones.
+  humanURL: https://www.qualified.com/api
+  baseURL: https://api.qualified.com
+  tags:
+  - Rep Conversations
+  properties:
+  - type: OpenAPI
+    url: openapi/qualified-com-rep-conversations-api-openapi.yml
+  - type: APIReference
+    url: https://www.qualified.com/api
+  - type: Documentation
+    url: https://app.qualified.com/docs/api
+- aid: qualified-com:qualified-com-sessions-api
+  name: Qualified Sessions API
+  description: >-
+    Website sessions, with page views and the conversations and meetings that occurred in them.
+  humanURL: https://www.qualified.com/api
+  baseURL: https://api.qualified.com
+  tags:
+  - Sessions
+  properties:
+  - type: OpenAPI
+    url: openapi/qualified-com-sessions-api-openapi.yml
   - type: APIReference
     url: https://www.qualified.com/api
   - type: Documentation
