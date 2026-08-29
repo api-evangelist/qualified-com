@@ -16,6 +16,18 @@ description: 'Qualified is a San Francisco based B2B agentic marketing platform 
 url: https://raw.githubusercontent.com/api-evangelist/qualified-com/refs/heads/main/apis.yml
 x-type: company
 x-source: harvest:secondary-market
+deliveryModel:
+  model: saas
+  open_source: false
+  commercial: true
+  callable_host: true
+  label: Hosted service · you call their endpoint
+  confidence: high
+  source:
+  - openapi
+  - pricing
+  generated: '2026-08-28'
+  method: derived
 specificationVersion: '0.20'
 x-enrichment:
   date: '2026-08-26'
