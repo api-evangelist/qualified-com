@@ -1,0 +1,159 @@
+openapi: 3.2.0
+info:
+  title: Qualified Enterprise GDPR API
+  version: '2.0'
+  description: "# Overview\n\n_Last updated: August 9, 2026_\n\nThe Qualified Enterprise API connects your Qualified data to your warehouse, CDP, and downstream systems. It exposes the underlying records for leads, website sessions, conversations, messages, meetings, and emails, so you can build funnels, rep-performance reporting, and engagement metrics on your own terms. It also accepts writes back to Qualified for leads and companies. If you're building a pipeline into Snowflake, Databricks, BigQuery, Adobe AEP, or Eloqua, this is the API for it.\n\nAt the center is the **Lead**, Qualified's rollup of everything known about one identified person: their website activity together with their records in your connected CRMs, keyed on email address. Sessions, conversations, meetings, and emails are **activities**. Sessions, conversations, and meetings each carry a **`visitorId`**, the stable key for the browser the activity happened in, assigned before the person is known and never changed. You resolve those activities to a person through the lead's `visitorIds`. Emails carry a `leadId`; messages join through their `conversationId`.\n\nReads follow a pull model: you query each resource on your own schedule over a time window, re-running to reconcile. Writes cover leads and companies, sent individually or batched through a bulk job, and a single write to the Companies endpoint sets account-level field values that every lead on that domain inherits.\n\nResponses contain personal data, including names, email addresses, and message text. Store and handle it according to your data-protection policies.\n\n# Authentication and access\n\nEvery request is authenticated with a bearer token:\n\n```\ncurl https://api.qualified.com/v2/leads \\\n  -H \"Authorization: Bearer YOUR_API_TOKEN\"\n```\n\nAPI keys are minted in the Qualified app with a specific set of **OAuth scopes**. A key reaches only the endpoints its scopes allow; a request without the required scope returns `403` with `{\"code\": \"insufficient_scope\"}`. Read endpoints require a `:view` scope and write endpoints require a `:manage` scope. Granting `:manage` also grants the matching `:view`.\n\n| Scope | Grants access to |\n|---|---|\n| `lead:view` / `lead:manage` | Read leads / create and update leads |\n| `company:manage` | Create and update companies |\n| `session:view` | Read sessions |\n| `conversation:view` | Read conversations and messages |\n| `meeting:view` / `meeting:manage` | Read meetings / cancel meetings |\n| `email:view` | Read emails |\n| `bulk_job:manage` | Submit bulk jobs and read their status (covers both `/v2/bulk` endpoints) |\n| `gdpr:manage` | Submit GDPR deletion requests |\n| `legacy:view` | Read the legacy bot/rep reporting endpoints |\n\nBoth message endpoints, `/v2/messages` and `/v2/conversations/{id}/messages`, use the `conversation:view` scope. The two field-listing endpoints, `/v2/leads/fields` and `/v2/companies/fields`, require only a valid token.\n\n# Identity\n\nActivities resolve to a person through one of two keys, and this is the model to understand before you design your schema. Sessions, conversations, and meetings are keyed on the **visitor**, the browser the activity happened in. Emails are keyed on the **lead**, since an email is addressed to a person rather than to a browser.\n\n- A **visitor** is a single browser or device. Every session, conversation, and meeting carries a **`visitorId`**, assigned the first time that browser is seen and stable for its lifetime.\n- A **lead** is the person: Qualified's rollup of everything known about one identified individual, keyed on email address and joined to their records in your connected CRMs. Emails carry a **`leadId`**, which is null when the mailing cannot be resolved to a lead.\n\n**A lead owns its visitors.** One person often browses from more than one device, and each device is a separate visitor. Every lead exposes a **`visitorIds`** array naming all the visitors that belong to it. To resolve a session, conversation, or meeting to a person, match its `visitorId` against the lead that lists it. The visitor is the join key, and the lead is where the mapping lives.\n\n**Only identified people are returned as leads.** `/v2/leads` and `/v2/leads/{id}` return leads that have an email address. Activity from a visitor who has not been identified is grouped by its `visitorId` alone, and joins to a lead the moment that visitor appears in a lead's `visitorIds`.\n\n**Unidentified visitors still carry data.** You don't need a lead to learn something about a person. Each session includes a `visitor` object holding that visitor's field answers and CRM record ids, so activity from people who are not yet identified is still worth ingesting. These are the visitor's **current** values, resolved when you make the request, not a snapshot as of that session — re-reading an old session returns today's values. The object is null when the visitor cannot be loaded.\n\n**Identification is retroactive.** When a visitor is identified, it joins the matching lead's `visitorIds`. Because a `visitorId` never changes, the visitor's earlier activity belonged to the same person all along, and you attach it the moment the visitor appears in `visitorIds`.\n\nA few details:\n\n- `visitorId` is present and immutable on every session, conversation, and meeting, including meetings booked outside a website session through a direct or routed meeting link or live booking.\n- Filter sessions, conversations, and meetings with `visitor_id`, and emails with `lead_id`. To pull one person's full history from the visitor-keyed endpoints, read their lead's `visitorIds` and query each in turn. To go the other way, `GET /v2/leads?email=` looks a person up by address.\n- Messages have no identity key of their own. They resolve through their `conversationId`.\n\n# Incremental sync\n\nAn incremental (delta) sync pulls only the records that changed since your last run, rather than re-downloading everything each time. You add a time window to each request: for example, `GET /v2/leads?updated_after=2026-06-01` returns only the leads updated on or after June 1.\n\nThere are three timestamps you can filter on:\n\n- **created:** when the record first appeared. Use it to find brand-new records.\n- **updated:** when the record last changed. Use it to catch new and changed records. Most delta syncs run on this.\n- **ended:** when a session or conversation finished. Sessions and conversations are filtered by when they ended rather than when they were last updated.\n\n**Which timestamp to use for each resource:**\n\n- **Leads, Meetings, Emails** use `updated_after` (with `updated_before` for an upper bound).\n- **Conversations** use `ended_after` / `ended_before`.\n- **Sessions** use `ended_after` / `ended_before`.\n- **Messages** use `created_after` / `created_before`, since messages never change once sent.\n\nMeetings, Emails, and Leads also accept `created_after` / `created_before` if you only want records *created* in the window. Sessions and conversations are windowed by end time only, since both become available once the session ends, so `created_after` / `created_before` are not offered for them. Timestamps are interpreted in **UTC** unless they carry an offset. A bare date like `2026-06-01` means midnight UTC at the *start* of that day on every bound, upper and lower alike, so to cover a whole day set the upper bound to the next day's date or pass a full timestamp. Timestamps in responses always come back as ISO-8601 in UTC (for example, `2026-06-12T15:04:05Z`).\n\nRequest parameters are `snake_case` (`updated_after`); the matching fields in responses are `camelCase` (`updatedAt`). Use `snake_case` in query parameters and read `camelCase` from response bodies.\n\n**What counts as a change.** For the resources you sync on `updated_after`, `updatedAt` advances on:\n\n- **Leads:** an email change, any custom field-value change (including automated updates such as email engagement and unsubscribes), a new visitor being associated with the lead (which is how a late identification surfaces), and a write to the Companies endpoint that changes an account-level field, which advances `updatedAt` on every lead on that domain.\n- **Emails:** recording an open, click, reply, or bounce. `updatedAt` is therefore always at least as recent as `openedAt`, `clickedAt`, `repliedAt`, and `bouncedAt`, so post-send engagement surfaces on `updated_after`. Opens can be recorded well after the send, so keep your re-sync window wide enough to catch them.\n- **Meetings:** any change to the offer or the calendar event, so reschedules, cancellations, and no-shows all surface, not only the original booking.\n\nTwo behaviors to keep in mind:\n\n- **Records become available after a hold.** Sessions, and the conversations and messages in them, appear in list results 30 minutes after the session ends. Leads and emails appear 30 minutes after they are created. Meetings appear 24 hours after they are created, and that hold applies whichever filter you use, so a meeting booked today is not reachable on `updated_after` either until tomorrow. Reads by id are always current. A bound that falls inside the hold has nothing to return yet, so it is rejected with `400` rather than coming back empty: keep `ended_*` (sessions, conversations) and `created_*` (leads, emails, messages, meetings) at or before 30 minutes ago, or 24 hours ago for meetings. Re-run the prior window on your next pass to pick up anything that arrived late.\n- **`updated_*` on `/v2/messages`.** Because messages never change, `updated_after` / `updated_before` on `/v2/messages` behave exactly like `created_after` / `created_before`. `/v2/conversations/{id}/messages` accepts the same pair and filters the stored update time, which for a message that has not been edited matches its creation time.\n\n# Pagination\n\nList endpoints are paged with a cursor, an opaque marker the API returns. Pass back the cursors the API gives you rather than constructing them.\n\n- `after` pages forward and `before` pages backward.\n- Every page returns up to **1000** records; the page size is fixed. (The legacy reporting endpoints page differently — see [Legacy reporting endpoints](#section/Legacy-reporting-endpoints).)\n- Results are ordered newest-first. The exact sort key varies by resource: leads, emails, and meetings sort on their own record id, sessions on their `endedAt`, and conversations and messages on their parent session's `endedAt`. In every case it is a stable descending order, but it is not necessarily the same timestamp you filtered on, so do not infer a record's position from its `updatedAt`.\n\nEvery list response includes a `pageInfo` block:\n\n```json\n{\n  \"data\": [ ... ],\n  \"pageInfo\": {\n    \"hasNextPage\": true,\n    \"hasPreviousPage\": false,\n    \"startCursor\": \"Qx7...\",\n    \"endCursor\": \"Zk2...\"\n  }\n}\n```\n\nPage forward by passing `endCursor` as `after` until `hasNextPage` is `false`. Drive the loop off `hasNextPage` rather than the number of rows you expected, since a page can come back smaller than the maximum. **Pagination, not window size, is how you pull a large range:** request the window you need and page through it, since a wide window never returns everything in one response. For efficient backfills, still work in bounded windows (around a day for high-volume resources) and page each to completion, which keeps every request comfortably within request limits.\n\nCursors are anchored on a record id, so records arriving mid-sync do not shift the page you are on. Two things to handle anyway: a cursor whose record is no longer readable is rejected with `400`, so restart that window rather than retrying the cursor; and `hasPreviousPage` on the activity endpoints (sessions, conversations, messages, meetings) reports only that the current page is non-empty, so drive your loop off `hasNextPage`. Re-running overlapping windows, as described under [Incremental sync](#section/Incremental-sync), is what makes a sync reliable end to end.\n\n# Rate limits\n\nLimits are enforced per team. The defaults:\n\n| Limit | Value |\n|---|---|\n| Concurrent requests | 10 |\n| Requests per 15 minutes | 2,000 |\n| Requests per hour | 7,000 |\n| Requests per day | 120,000 |\n\nResponses carry `RateLimit-Limit`, `RateLimit-Remaining`, and `RateLimit-Reset` (epoch seconds). These describe the **15-minute** window only, so you can have remaining quota there and still be rejected by the hourly or daily tier.\n\nExceeding a limit returns `429` with `{\"code\": \"rate_limited\"}`. For the three time-window limits the response includes a `Retry-After` header; back off for that many seconds. The concurrency limit returns `429` **without** `Retry-After` or `RateLimit-*` headers, so treat a missing `Retry-After` as \"retry once a request in flight completes\" rather than as an error. Keep concurrency at or below 10.\n\n# Errors\n\nThe API uses standard HTTP status codes. Error bodies vary by status code, as shown below; parse each according to the shape listed.\n\n| Status | Meaning | Body | What to do |\n|---|---|---|---|\n| `400` | Malformed request, such as a bad date, cursor, or filter value, or a time window that starts inside a resource's availability hold | `{\"error\": \"...\"}` (bulk: `{\"code\",\"message\"}`) | Fix the request parameters and retry. |\n| `401` | Missing or invalid token, or API not enabled for the team | `{\"code\": \"invalid_token\"}` | Check the token, and that the API is enabled for the team. |\n| `403` | Token lacks the required scope | `{\"code\": \"insufficient_scope\"}` | Re-mint the key with the scope the endpoint needs. |\n| `404` | Record not found, or a path id that can't be decoded | `{\"error\": \"...\"}`, `{\"code\": \"not_found\", \"message\": \"...\"}`, or `{\"message\": \"...\"}` (cancel meeting) | The shape varies by endpoint, so read `error`, `code`, and `message` defensively rather than branching on one key. Treat the record as gone and do not retry. |\n| `422` | Write rejected, such as an unknown field, invalid value, or malformed batch | `{\"error\": \"...\", \"details\": ...}` (bulk: `{\"code\",\"message\"}`) | When a single field is rejected, `details.failed_field` names it; fix that field or value and resubmit. |\n| `429` | Rate limit exceeded | `{\"code\": \"rate_limited\", \"message\": \"...\"}` | Back off for `Retry-After` seconds, then retry. |\n| `500` | Unexpected server error | `{\"error\": \"Internal server error\"}` | Retry with backoff; if it persists, contact support. |\n\n**Bulk writes report failures at two levels.** `POST /v2/bulk` returns `202` to confirm the batch was accepted; individual items within it can still fail. Confirm per-item outcomes by checking `failedRecords` and reading the `errors` on each entry in the job's `result` array.\n\n# Common workflows\n\nCommon integration sequences. Each builds on the concepts above rather than repeating them.\n\n**Backfill history first.** Before your first incremental run, load historical data by walking backward in bounded windows, a week at a time, or a day for high-volume resources, using `created_after`/`created_before` (or `ended_after`/`ended_before` for sessions and conversations) and paging each window to completion. When you reach the present, record the latest timestamp you have seen and switch to the daily delta sync below.\n\n**Daily delta sync.** For each resource, pull a roughly 24-hour window (`updated_after` for leads, meetings, and emails; `ended_after` for conversations and sessions), paging to completion and upserting on the record `id`. For meetings, shift the whole window back 24 hours so it clears the availability hold. Re-run the prior window on the next pass to pick up rows that landed late.\n\n**Resolve identity.** On each leads pull, map the lead's `visitorIds` onto your stored activity so every visitor's history points at the right lead. See [Identity](#section/Identity).\n\n**Pull conversation transcripts.** List conversations on an `ended_after` window, then fetch `/v2/conversations/{id}/messages` for each. `senderType` (`user`, `visitor`, `experience`, `ai_profile`) identifies who spoke, and `senderName` gives the display name where one exists. Both are null when the sender cannot be resolved. Unlike `/v2/messages`, the per-conversation endpoint is not held back, so it returns messages from a session that is still running.\n\n# Versioning and compatibility\n\nThis reference documents `/v2`, the current version and the one to build against. The earlier `/v1` Enterprise API endpoints are still served and remain supported for existing integrations, but they are not documented here. The two legacy reporting endpoints also remain under `/v1` (see [Legacy reporting endpoints](#section/Legacy-reporting-endpoints)). We may add new fields and endpoints over time, so parse responses leniently and ignore any field you do not recognize. Removing a field, changing a field's type, or changing the format of an id or cursor is a breaking change, and we will communicate any such change in advance.\n\n# Legacy reporting endpoints\n\nTwo earlier endpoints, `GET /v1/bot_conversations` and `GET /v1/rep_conversations`, predate the rest of this API and remain under `/v1`. They return a visitor's bot and rep conversations in a self-contained shape, with nested visitor, messages, meetings, and calls, and were the original way to pull conversation history.\n\nThe [Conversations](#tag/Conversations), [Messages](#tag/Messages), and [Meetings](#tag/Meetings) endpoints now cover everything these do and more, in a richer and more consistent form, and are recommended for new integrations. The legacy endpoints remain fully supported for existing integrations. Two differences from the rest of the API: their response fields are **`snake_case`**, predating the `camelCase` convention, and they page with `starting_after`/`limit` and a `meta` block rather than the cursor `pageInfo` used elsewhere.\n\n---"
+servers:
+- url: https://api.qualified.com
+  description: Production
+security:
+- bearerToken: []
+tags:
+- name: GDPR
+  description: Submit GDPR deletion requests by email.
+paths:
+  /v2/gdpr_deletion_requests:
+    post:
+      summary: Submit a GDPR deletion request
+      operationId: createGdprDeletionRequest
+      description: 'Submits a batch of email addresses for GDPR deletion. Requires the GDPR deletion API to be enabled for the team. Up to 5,000 emails per request; every address must be well-formed or the whole request is rejected.
+
+
+        **Scope:** `gdpr:manage`
+
+        '
+      tags:
+      - GDPR
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GdprDeletionRequest'
+      responses:
+        '200':
+          description: The deletion request was accepted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          description: '`emails` was missing from the body.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CodeErrorResponse'
+              example:
+                code: missing_emails
+                message: No valid emails provided.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          description: '`emails` was not an array, exceeded 5,000 entries, or contained a malformed address.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CodeErrorResponse'
+              example:
+                code: invalid_input
+                message: A maximum of 5000 emails is allowed.
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          description: 'Unexpected server error. Note this endpoint nests the message: `error` is an object, not a string.'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      message:
+                        type: string
+              example:
+                error:
+                  message: Failed to create deletion request.
+components:
+  schemas:
+    CodeErrorResponse:
+      type: object
+      properties:
+        code:
+          type: string
+          description: Machine-readable error code.
+        message:
+          type: string
+          description: Human-readable error message.
+    GdprDeletionRequest:
+      type: object
+      required:
+      - emails
+      properties:
+        emails:
+          type: array
+          description: Email addresses to delete. Up to 5,000 per request; every address must be well-formed or the whole request is rejected.
+          maxItems: 5000
+          items:
+            type: string
+            format: email
+    MessageResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          description: Human-readable status message.
+  responses:
+    Forbidden:
+      description: The token lacks the required OAuth scope.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CodeErrorResponse'
+          example:
+            code: insufficient_scope
+    TooManyRequests:
+      description: A rate limit was exceeded. The three time-window limits set a `Retry-After` header; the concurrency limit does not, so treat its absence as "retry once an in-flight request finishes".
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CodeErrorResponse'
+          example:
+            code: rate_limited
+            message: Enterprise API rate limit exceeded
+    Unauthorized:
+      description: Missing or invalid token, or the API is not enabled for the team.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CodeErrorResponse'
+          example:
+            code: invalid_token
+  securitySchemes:
+    bearerToken:
+      type: http
+      scheme: bearer
+      bearerFormat: Token
+x-tagGroups:
+- name: Write APIs
+  tags:
+  - Leads
+  - Companies
+  - Bulk
+- name: Activity APIs
+  tags:
+  - Sessions
+  - Conversations
+  - Messages
+  - Meetings
+  - Emails
+- name: Utility APIs
+  tags:
+  - Cancel Meeting
+  - GDPR
+- name: Legacy Reporting API
+  tags:
+  - Bot Conversations
+  - Rep Conversations
