@@ -185,6 +185,8 @@ apis:
   humanURL: https://www.qualified.com/api
   baseURL: https://api.qualified.com
   tags:
+  - Message
+  tags_raw:
   - Messages
   properties:
   - type: OpenAPI
