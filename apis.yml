@@ -145,6 +145,8 @@ apis:
   humanURL: https://www.qualified.com/api
   baseURL: https://api.qualified.com
   tags:
+  - Email
+  tags_raw:
   - Emails
   properties:
   - type: OpenAPI
