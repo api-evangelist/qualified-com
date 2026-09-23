@@ -1,0 +1,42 @@
+{
+  "provider": "qualified-com",
+  "sources": [
+    "_original/qualified-com-enterprise-api-openapi.json"
+  ],
+  "outputs": [
+    "qualified-com-bot-conversations-api-openapi.yml",
+    "qualified-com-bulk-api-openapi.yml",
+    "qualified-com-cancel-meeting-api-openapi.yml",
+    "qualified-com-companies-api-openapi.yml",
+    "qualified-com-conversations-api-openapi.yml",
+    "qualified-com-emails-api-openapi.yml",
+    "qualified-com-gdpr-api-openapi.yml",
+    "qualified-com-leads-api-openapi.yml",
+    "qualified-com-meetings-api-openapi.yml",
+    "qualified-com-messages-api-openapi.yml",
+    "qualified-com-rep-conversations-api-openapi.yml",
+    "qualified-com-sessions-api-openapi.yml"
+  ],
+  "archived": [],
+  "errors": [],
+  "warnings": [],
+  "notes": [
+    "sourced from openapi/_original/ (1 archived document(s)); previously refined output at the top level was skipped rather than re-split",
+    "qualified-com-enterprise-api-openapi.json: upgraded openapi 3.0.3 -> OpenAPI 3.2.0",
+    "apis.yml register: already-registered"
+  ],
+  "skipped": [
+    "qualified-com-bot-conversations-api-openapi.yml: previously refined output, superseded by openapi/_original/",
+    "qualified-com-bulk-api-openapi.yml: previously refined output, superseded by openapi/_original/",
+    "qualified-com-cancel-meeting-api-openapi.yml: previously refined output, superseded by openapi/_original/",
+    "qualified-com-companies-api-openapi.yml: previously refined output, superseded by openapi/_original/",
+    "qualified-com-conversations-api-openapi.yml: previously refined output, superseded by openapi/_original/",
+    "qualified-com-emails-api-openapi.yml: previously refined output, superseded by openapi/_original/",
+    "qualified-com-gdpr-api-openapi.yml: previously refined output, superseded by openapi/_original/",
+    "qualified-com-leads-api-openapi.yml: previously refined output, superseded by openapi/_original/",
+    "qualified-com-meetings-api-openapi.yml: previously refined output, superseded by openapi/_original/",
+    "qualified-com-messages-api-openapi.yml: previously refined output, superseded by openapi/_original/",
+    "qualified-com-rep-conversations-api-openapi.yml: previously refined output, superseded by openapi/_original/",
+    "qualified-com-sessions-api-openapi.yml: previously refined output, superseded by openapi/_original/"
+  ]
+}
