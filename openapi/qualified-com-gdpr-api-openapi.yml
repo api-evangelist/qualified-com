@@ -81,13 +81,42 @@ paths:
                 error:
                   message: Failed to create deletion request.
 components:
+  responses:
+    Forbidden:
+      description: The token lacks the required OAuth scope.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CodeErrorResponse'
+          example:
+            code: insufficient_scope
+    TooManyRequests:
+      description: A rate limit was exceeded. The three time-window limits set a `Retry-After` header; the concurrency limit does not, so treat its absence as "retry once an in-flight request finishes".
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CodeErrorResponse'
+          example:
+            code: rate_limited
+            message: Enterprise API rate limit exceeded
+    Unauthorized:
+      description: Missing or invalid token, or the API is not enabled for the team.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CodeErrorResponse'
+          example:
+            code: invalid_token
   schemas:
-    MessageResponse:
+    CodeErrorResponse:
       type: object
       properties:
+        code:
+          type: string
+          description: Machine-readable error code.
         message:
           type: string
-          description: Human-readable status message.
+          description: Human-readable error message.
     GdprDeletionRequest:
       type: object
       required:
@@ -100,41 +129,12 @@ components:
           items:
             type: string
             format: email
-    CodeErrorResponse:
+    MessageResponse:
       type: object
       properties:
-        code:
-          type: string
-          description: Machine-readable error code.
         message:
           type: string
-          description: Human-readable error message.
-  responses:
-    Unauthorized:
-      description: Missing or invalid token, or the API is not enabled for the team.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/CodeErrorResponse'
-          example:
-            code: invalid_token
-    TooManyRequests:
-      description: A rate limit was exceeded. The three time-window limits set a `Retry-After` header; the concurrency limit does not, so treat its absence as "retry once an in-flight request finishes".
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/CodeErrorResponse'
-          example:
-            code: rate_limited
-            message: Enterprise API rate limit exceeded
-    Forbidden:
-      description: The token lacks the required OAuth scope.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/CodeErrorResponse'
-          example:
-            code: insufficient_scope
+          description: Human-readable status message.
   securitySchemes:
     bearerToken:
       type: http

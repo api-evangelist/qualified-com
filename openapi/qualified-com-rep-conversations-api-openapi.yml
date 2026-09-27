@@ -68,81 +68,6 @@ paths:
           $ref: '#/components/responses/InternalServerError'
 components:
   schemas:
-    LegacyUser:
-      type: object
-      description: A rep, as returned by the legacy reporting endpoints.
-      properties:
-        id:
-          type: string
-          description: Encoded user id.
-        email:
-          type: string
-          description: Rep email.
-        name:
-          type: string
-          description: Rep name.
-    RepConversation:
-      type: object
-      description: A visitor's conversation with a human rep (legacy reporting).
-      properties:
-        id:
-          type: string
-          description: Encoded rep conversation id.
-        started_at:
-          type: string
-          format: date-time
-          description: When the rep conversation started.
-        visitor:
-          $ref: '#/components/schemas/LegacyVisitor'
-        user:
-          $ref: '#/components/schemas/LegacyUser'
-        bot_conversation_id:
-          type:
-          - string
-          - 'null'
-          description: Encoded id of the bot conversation that led to this rep conversation, or null.
-        salesforce_lead_captured_by_rep:
-          type: boolean
-          description: True if the rep created a Salesforce lead for the visitor.
-        pardot_prospect_captured_by_rep:
-          type: boolean
-          description: True if the rep created a Pardot prospect for the visitor.
-        marketo_lead_captured_by_rep:
-          type: boolean
-          description: True if the rep created a Marketo lead for the visitor.
-        eloqua_contact_captured_by_rep:
-          type: boolean
-          description: True if the rep created an Eloqua contact for the visitor.
-        meetings:
-          type: array
-          items:
-            $ref: '#/components/schemas/LegacyMeeting'
-        calls:
-          type: array
-          items:
-            $ref: '#/components/schemas/LegacyCall'
-        messages:
-          type: array
-          items:
-            $ref: '#/components/schemas/LegacyMessage'
-    LegacyMeeting:
-      type: object
-      description: A meeting within a legacy bot or rep conversation.
-      properties:
-        offer_sent_at:
-          type: string
-          format: date-time
-          description: When the meeting offer was sent.
-        ai:
-          type: boolean
-          description: True if the meeting was offered by AI.
-        booked_user:
-          type:
-          - object
-          - 'null'
-          allOf:
-          - $ref: '#/components/schemas/LegacyUser'
-          description: The rep the meeting was booked with, or null if no meeting was booked.
     LegacyPageMeta:
       type: object
       description: Pagination metadata for the legacy reporting endpoints.
@@ -153,53 +78,6 @@ components:
         end_cursor:
           type: string
           description: Object id of the last conversation in this page. Pass as `starting_after` to fetch the next page.
-    LegacyCall:
-      type: object
-      description: A voice call within a legacy rep conversation.
-      properties:
-        started_at:
-          type: string
-          format: date-time
-          description: When the call started.
-        ended_at:
-          type: string
-          format: date-time
-          description: When the call ended.
-    LegacyMessage:
-      type: object
-      description: A message within a legacy bot or rep conversation.
-      properties:
-        sent_at:
-          type: string
-          format: date-time
-          description: When the message was sent.
-        ai:
-          type: boolean
-          description: True if the message was sent by AI.
-        visitor_id:
-          type:
-          - string
-          - 'null'
-          description: Encoded id of the visitor who sent it, or null.
-        bot_id:
-          type:
-          - string
-          - 'null'
-          description: Encoded id of the bot that sent it, or null.
-        user_id:
-          type:
-          - string
-          - 'null'
-          description: Encoded id of the rep who sent it, or null.
-        text:
-          type: string
-          description: Message text.
-    ErrorResponse:
-      type: object
-      properties:
-        error:
-          type: string
-          description: Human-readable error message.
     LegacyVisitor:
       type: object
       description: A visitor, as returned by the legacy reporting endpoints.
@@ -251,6 +129,35 @@ components:
         message:
           type: string
           description: Human-readable error message.
+    LegacyMessage:
+      type: object
+      description: A message within a legacy bot or rep conversation.
+      properties:
+        sent_at:
+          type: string
+          format: date-time
+          description: When the message was sent.
+        ai:
+          type: boolean
+          description: True if the message was sent by AI.
+        visitor_id:
+          type:
+          - string
+          - 'null'
+          description: Encoded id of the visitor who sent it, or null.
+        bot_id:
+          type:
+          - string
+          - 'null'
+          description: Encoded id of the bot that sent it, or null.
+        user_id:
+          type:
+          - string
+          - 'null'
+          description: Encoded id of the rep who sent it, or null.
+        text:
+          type: string
+          description: Message text.
     RepConversationResponse:
       type: object
       properties:
@@ -260,6 +167,99 @@ components:
             $ref: '#/components/schemas/RepConversation'
         meta:
           $ref: '#/components/schemas/LegacyPageMeta'
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Human-readable error message.
+    LegacyMeeting:
+      type: object
+      description: A meeting within a legacy bot or rep conversation.
+      properties:
+        offer_sent_at:
+          type: string
+          format: date-time
+          description: When the meeting offer was sent.
+        ai:
+          type: boolean
+          description: True if the meeting was offered by AI.
+        booked_user:
+          type:
+          - object
+          - 'null'
+          allOf:
+          - $ref: '#/components/schemas/LegacyUser'
+          description: The rep the meeting was booked with, or null if no meeting was booked.
+    RepConversation:
+      type: object
+      description: A visitor's conversation with a human rep (legacy reporting).
+      properties:
+        id:
+          type: string
+          description: Encoded rep conversation id.
+        started_at:
+          type: string
+          format: date-time
+          description: When the rep conversation started.
+        visitor:
+          $ref: '#/components/schemas/LegacyVisitor'
+        user:
+          $ref: '#/components/schemas/LegacyUser'
+        bot_conversation_id:
+          type:
+          - string
+          - 'null'
+          description: Encoded id of the bot conversation that led to this rep conversation, or null.
+        salesforce_lead_captured_by_rep:
+          type: boolean
+          description: True if the rep created a Salesforce lead for the visitor.
+        pardot_prospect_captured_by_rep:
+          type: boolean
+          description: True if the rep created a Pardot prospect for the visitor.
+        marketo_lead_captured_by_rep:
+          type: boolean
+          description: True if the rep created a Marketo lead for the visitor.
+        eloqua_contact_captured_by_rep:
+          type: boolean
+          description: True if the rep created an Eloqua contact for the visitor.
+        meetings:
+          type: array
+          items:
+            $ref: '#/components/schemas/LegacyMeeting'
+        calls:
+          type: array
+          items:
+            $ref: '#/components/schemas/LegacyCall'
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/LegacyMessage'
+    LegacyCall:
+      type: object
+      description: A voice call within a legacy rep conversation.
+      properties:
+        started_at:
+          type: string
+          format: date-time
+          description: When the call started.
+        ended_at:
+          type: string
+          format: date-time
+          description: When the call ended.
+    LegacyUser:
+      type: object
+      description: A rep, as returned by the legacy reporting endpoints.
+      properties:
+        id:
+          type: string
+          description: Encoded user id.
+        email:
+          type: string
+          description: Rep email.
+        name:
+          type: string
+          description: Rep name.
   responses:
     InternalServerError:
       description: Unexpected server error.
