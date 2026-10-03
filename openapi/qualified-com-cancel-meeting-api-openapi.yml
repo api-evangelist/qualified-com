@@ -73,6 +73,22 @@ paths:
           $ref: '#/components/responses/InternalServerError'
 components:
   responses:
+    InternalServerError:
+      description: Unexpected server error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: Internal server error
+    Unauthorized:
+      description: Missing or invalid token, or the API is not enabled for the team.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CodeErrorResponse'
+          example:
+            code: invalid_token
     Forbidden:
       description: The token lacks the required OAuth scope.
       content:
@@ -90,22 +106,6 @@ components:
           example:
             code: rate_limited
             message: Enterprise API rate limit exceeded
-    Unauthorized:
-      description: Missing or invalid token, or the API is not enabled for the team.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/CodeErrorResponse'
-          example:
-            code: invalid_token
-    InternalServerError:
-      description: Unexpected server error.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-          example:
-            error: Internal server error
   schemas:
     CodeErrorResponse:
       type: object

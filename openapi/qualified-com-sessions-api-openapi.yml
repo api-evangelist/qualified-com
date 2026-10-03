@@ -97,12 +97,36 @@ paths:
           $ref: '#/components/responses/InternalServerError'
 components:
   responses:
+    InternalServerError:
+      description: Unexpected server error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: Internal server error
+    Unauthorized:
+      description: Missing or invalid token, or the API is not enabled for the team.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CodeErrorResponse'
+          example:
+            code: invalid_token
     BadRequest:
       description: Malformed request, such as an invalid date or cursor.
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: The record was not found, or the id could not be decoded.
+      content:
+        application/json:
+          schema:
+            oneOf:
+            - $ref: '#/components/schemas/ErrorResponse'
+            - $ref: '#/components/schemas/CodeErrorResponse'
     Forbidden:
       description: The token lacks the required OAuth scope.
       content:
@@ -120,30 +144,6 @@ components:
           example:
             code: rate_limited
             message: Enterprise API rate limit exceeded
-    Unauthorized:
-      description: Missing or invalid token, or the API is not enabled for the team.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/CodeErrorResponse'
-          example:
-            code: invalid_token
-    InternalServerError:
-      description: Unexpected server error.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-          example:
-            error: Internal server error
-    NotFound:
-      description: The record was not found, or the id could not be decoded.
-      content:
-        application/json:
-          schema:
-            oneOf:
-            - $ref: '#/components/schemas/ErrorResponse'
-            - $ref: '#/components/schemas/CodeErrorResponse'
   schemas:
     Session:
       type: object
@@ -315,20 +315,6 @@ components:
           - 'null'
           description: Cursor for the last item on this page.
   parameters:
-    VisitorId:
-      name: visitor_id
-      in: query
-      required: false
-      description: Return only records for this visitor, including activity recorded before the visitor was identified. To pull everything for one person, read the lead's `visitorIds` and query each in turn.
-      schema:
-        type: string
-    After:
-      name: after
-      in: query
-      required: false
-      description: Cursor for forward pagination. Pass the `endCursor` from the previous response.
-      schema:
-        type: string
     EndedAfter:
       name: ended_after
       in: query
@@ -336,11 +322,25 @@ components:
       description: Return records that ended at or after this time. Interpreted as UTC unless an offset is given. A bare date (`YYYY-MM-DD`) means midnight UTC at the start of that day.
       schema:
         type: string
+    VisitorId:
+      name: visitor_id
+      in: query
+      required: false
+      description: Return only records for this visitor, including activity recorded before the visitor was identified. To pull everything for one person, read the lead's `visitorIds` and query each in turn.
+      schema:
+        type: string
     Before:
       name: before
       in: query
       required: false
       description: Cursor for backward pagination. Pass the `startCursor` from the previous response.
+      schema:
+        type: string
+    After:
+      name: after
+      in: query
+      required: false
+      description: Cursor for forward pagination. Pass the `endCursor` from the previous response.
       schema:
         type: string
     EndedBefore:

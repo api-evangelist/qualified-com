@@ -138,48 +138,6 @@ paths:
           $ref: '#/components/responses/InternalServerError'
 components:
   responses:
-    Forbidden:
-      description: The token lacks the required OAuth scope.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/CodeErrorResponse'
-          example:
-            code: insufficient_scope
-    TooManyRequests:
-      description: A rate limit was exceeded. The three time-window limits set a `Retry-After` header; the concurrency limit does not, so treat its absence as "retry once an in-flight request finishes".
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/CodeErrorResponse'
-          example:
-            code: rate_limited
-            message: Enterprise API rate limit exceeded
-    BulkBadRequest:
-      description: Malformed bulk request.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/CodeErrorResponse'
-          example:
-            code: bad_request
-            message: Invalid request
-    Unauthorized:
-      description: Missing or invalid token, or the API is not enabled for the team.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/CodeErrorResponse'
-          example:
-            code: invalid_token
-    NotFound:
-      description: The record was not found, or the id could not be decoded.
-      content:
-        application/json:
-          schema:
-            oneOf:
-            - $ref: '#/components/schemas/ErrorResponse'
-            - $ref: '#/components/schemas/CodeErrorResponse'
     InternalServerError:
       description: Unexpected server error.
       content:
@@ -188,6 +146,14 @@ components:
             $ref: '#/components/schemas/ErrorResponse'
           example:
             error: Internal server error
+    Unauthorized:
+      description: Missing or invalid token, or the API is not enabled for the team.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CodeErrorResponse'
+          example:
+            code: invalid_token
     BulkInvalidItems:
       description: The batch was rejected, for example `items` is missing, not an array, or outside the 1–500 range.
       content:
@@ -197,6 +163,40 @@ components:
           example:
             code: invalid_items
             message: items must be an array with size 1..500
+    NotFound:
+      description: The record was not found, or the id could not be decoded.
+      content:
+        application/json:
+          schema:
+            oneOf:
+            - $ref: '#/components/schemas/ErrorResponse'
+            - $ref: '#/components/schemas/CodeErrorResponse'
+    Forbidden:
+      description: The token lacks the required OAuth scope.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CodeErrorResponse'
+          example:
+            code: insufficient_scope
+    BulkBadRequest:
+      description: Malformed bulk request.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CodeErrorResponse'
+          example:
+            code: bad_request
+            message: Invalid request
+    TooManyRequests:
+      description: A rate limit was exceeded. The three time-window limits set a `Retry-After` header; the concurrency limit does not, so treat its absence as "retry once an in-flight request finishes".
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CodeErrorResponse'
+          example:
+            code: rate_limited
+            message: Enterprise API rate limit exceeded
   schemas:
     BulkJob:
       type: object

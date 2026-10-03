@@ -101,6 +101,22 @@ paths:
           $ref: '#/components/responses/InternalServerError'
 components:
   responses:
+    InternalServerError:
+      description: Unexpected server error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: Internal server error
+    Unauthorized:
+      description: Missing or invalid token, or the API is not enabled for the team.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CodeErrorResponse'
+          example:
+            code: invalid_token
     BadRequest:
       description: Malformed request, such as an invalid date or cursor.
       content:
@@ -115,6 +131,12 @@ components:
             $ref: '#/components/schemas/CodeErrorResponse'
           example:
             code: insufficient_scope
+    UnprocessableEntity:
+      description: The write was rejected, for example an unknown field, an invalid value, or a malformed batch.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ValidationErrorResponse'
     TooManyRequests:
       description: A rate limit was exceeded. The three time-window limits set a `Retry-After` header; the concurrency limit does not, so treat its absence as "retry once an in-flight request finishes".
       content:
@@ -124,81 +146,7 @@ components:
           example:
             code: rate_limited
             message: Enterprise API rate limit exceeded
-    UnprocessableEntity:
-      description: The write was rejected, for example an unknown field, an invalid value, or a malformed batch.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ValidationErrorResponse'
-    Unauthorized:
-      description: Missing or invalid token, or the API is not enabled for the team.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/CodeErrorResponse'
-          example:
-            code: invalid_token
-    InternalServerError:
-      description: Unexpected server error.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-          example:
-            error: Internal server error
   schemas:
-    ValidationErrorResponse:
-      type: object
-      properties:
-        error:
-          type: string
-          description: Human-readable error message.
-        details:
-          type: object
-          description: Structured context identifying what was rejected, for example the offending field under `failed_field`. Keys vary by failure.
-          additionalProperties: true
-    CodeErrorResponse:
-      type: object
-      properties:
-        code:
-          type: string
-          description: Machine-readable error code.
-        message:
-          type: string
-          description: Human-readable error message.
-    ErrorResponse:
-      type: object
-      properties:
-        error:
-          type: string
-          description: Human-readable error message.
-    Company:
-      type: object
-      description: A company (account) record. Returned only from the upsert response.
-      properties:
-        id:
-          type: string
-          description: Encoded company identifier.
-        domain:
-          type: string
-          description: Normalized company domain.
-        name:
-          type:
-          - string
-          - 'null'
-          description: Company name.
-        fields:
-          type: object
-          description: Account-category custom field values keyed by field API name.
-          additionalProperties: true
-        createdAt:
-          type: string
-          format: date-time
-          description: When the company was created.
-        updatedAt:
-          type: string
-          format: date-time
-          description: When the company was last updated.
     Field:
       type: object
       description: A custom field definition.
@@ -235,6 +183,58 @@ components:
           type: string
           format: date-time
           description: When the field was last updated.
+    Company:
+      type: object
+      description: A company (account) record. Returned only from the upsert response.
+      properties:
+        id:
+          type: string
+          description: Encoded company identifier.
+        domain:
+          type: string
+          description: Normalized company domain.
+        name:
+          type:
+          - string
+          - 'null'
+          description: Company name.
+        fields:
+          type: object
+          description: Account-category custom field values keyed by field API name.
+          additionalProperties: true
+        createdAt:
+          type: string
+          format: date-time
+          description: When the company was created.
+        updatedAt:
+          type: string
+          format: date-time
+          description: When the company was last updated.
+    CodeErrorResponse:
+      type: object
+      properties:
+        code:
+          type: string
+          description: Machine-readable error code.
+        message:
+          type: string
+          description: Human-readable error message.
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Human-readable error message.
+    ValidationErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Human-readable error message.
+        details:
+          type: object
+          description: Structured context identifying what was rejected, for example the offending field under `failed_field`. Keys vary by failure.
+          additionalProperties: true
   securitySchemes:
     bearerToken:
       type: http

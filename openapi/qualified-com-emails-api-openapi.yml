@@ -99,12 +99,36 @@ paths:
           $ref: '#/components/responses/InternalServerError'
 components:
   responses:
+    InternalServerError:
+      description: Unexpected server error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: Internal server error
+    Unauthorized:
+      description: Missing or invalid token, or the API is not enabled for the team.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CodeErrorResponse'
+          example:
+            code: invalid_token
     BadRequest:
       description: Malformed request, such as an invalid date or cursor.
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: The record was not found, or the id could not be decoded.
+      content:
+        application/json:
+          schema:
+            oneOf:
+            - $ref: '#/components/schemas/ErrorResponse'
+            - $ref: '#/components/schemas/CodeErrorResponse'
     Forbidden:
       description: The token lacks the required OAuth scope.
       content:
@@ -122,45 +146,7 @@ components:
           example:
             code: rate_limited
             message: Enterprise API rate limit exceeded
-    Unauthorized:
-      description: Missing or invalid token, or the API is not enabled for the team.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/CodeErrorResponse'
-          example:
-            code: invalid_token
-    InternalServerError:
-      description: Unexpected server error.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-          example:
-            error: Internal server error
-    NotFound:
-      description: The record was not found, or the id could not be decoded.
-      content:
-        application/json:
-          schema:
-            oneOf:
-            - $ref: '#/components/schemas/ErrorResponse'
-            - $ref: '#/components/schemas/CodeErrorResponse'
   parameters:
-    UpdatedAfter:
-      name: updated_after
-      in: query
-      required: false
-      description: Return records updated at or after this time. Interpreted as UTC unless an offset is given. A bare date (`YYYY-MM-DD`) means midnight UTC at the start of that day.
-      schema:
-        type: string
-    After:
-      name: after
-      in: query
-      required: false
-      description: Cursor for forward pagination. Pass the `endCursor` from the previous response.
-      schema:
-        type: string
     UpdatedBefore:
       name: updated_before
       in: query
@@ -168,11 +154,25 @@ components:
       description: Return records updated at or before this time. Interpreted as UTC unless an offset is given. A bare date (`YYYY-MM-DD`) means midnight UTC at the start of that day, so pass the next day's date to include a whole day.
       schema:
         type: string
+    CreatedAfter:
+      name: created_after
+      in: query
+      required: false
+      description: Return records created at or after this time. Accepts an ISO-8601 timestamp, interpreted as UTC unless it carries an offset. A bare date (`YYYY-MM-DD`) means midnight UTC at the start of that day.
+      schema:
+        type: string
     LeadId:
       name: lead_id
       in: query
       required: false
       description: Return only emails for this lead.
+      schema:
+        type: string
+    UpdatedAfter:
+      name: updated_after
+      in: query
+      required: false
+      description: Return records updated at or after this time. Interpreted as UTC unless an offset is given. A bare date (`YYYY-MM-DD`) means midnight UTC at the start of that day.
       schema:
         type: string
     Before:
@@ -189,11 +189,11 @@ components:
       description: Return records created at or before this time. Accepts an ISO-8601 timestamp, interpreted as UTC unless it carries an offset. A bare date (`YYYY-MM-DD`) means midnight UTC at the start of that day, so pass the next day's date to include a whole day.
       schema:
         type: string
-    CreatedAfter:
-      name: created_after
+    After:
+      name: after
       in: query
       required: false
-      description: Return records created at or after this time. Accepts an ISO-8601 timestamp, interpreted as UTC unless it carries an offset. A bare date (`YYYY-MM-DD`) means midnight UTC at the start of that day.
+      description: Cursor for forward pagination. Pass the `endCursor` from the previous response.
       schema:
         type: string
   schemas:
@@ -206,32 +206,6 @@ components:
         message:
           type: string
           description: Human-readable error message.
-    ErrorResponse:
-      type: object
-      properties:
-        error:
-          type: string
-          description: Human-readable error message.
-    PageInfo:
-      type: object
-      description: Cursor-based pagination metadata.
-      properties:
-        hasNextPage:
-          type: boolean
-          description: Whether more results exist after `endCursor`.
-        hasPreviousPage:
-          type: boolean
-          description: Whether more results exist before `startCursor`.
-        startCursor:
-          type:
-          - string
-          - 'null'
-          description: Cursor for the first item on this page.
-        endCursor:
-          type:
-          - string
-          - 'null'
-          description: Cursor for the last item on this page.
     Email:
       type: object
       description: An outbound email activity associated with a lead.
@@ -329,6 +303,32 @@ components:
           type: string
           format: date-time
           description: When the email was last updated. Advances on opens, clicks, replies, and bounces.
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Human-readable error message.
+    PageInfo:
+      type: object
+      description: Cursor-based pagination metadata.
+      properties:
+        hasNextPage:
+          type: boolean
+          description: Whether more results exist after `endCursor`.
+        hasPreviousPage:
+          type: boolean
+          description: Whether more results exist before `startCursor`.
+        startCursor:
+          type:
+          - string
+          - 'null'
+          description: Cursor for the first item on this page.
+        endCursor:
+          type:
+          - string
+          - 'null'
+          description: Cursor for the last item on this page.
   securitySchemes:
     bearerToken:
       type: http
