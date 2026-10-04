@@ -178,111 +178,62 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 components:
-  parameters:
-    Email:
-      name: email
-      in: query
-      required: false
-      description: Return only the lead with this email address. Exact match, case-insensitive, with surrounding whitespace ignored.
-      schema:
-        type: string
-    CreatedAfter:
-      name: created_after
-      in: query
-      required: false
-      description: Return records created at or after this time. Accepts an ISO-8601 timestamp, interpreted as UTC unless it carries an offset. A bare date (`YYYY-MM-DD`) means midnight UTC at the start of that day.
-      schema:
-        type: string
-    UpdatedAfter:
-      name: updated_after
-      in: query
-      required: false
-      description: Return records updated at or after this time. Interpreted as UTC unless an offset is given. A bare date (`YYYY-MM-DD`) means midnight UTC at the start of that day.
-      schema:
-        type: string
-    CreatedBefore:
-      name: created_before
-      in: query
-      required: false
-      description: Return records created at or before this time. Accepts an ISO-8601 timestamp, interpreted as UTC unless it carries an offset. A bare date (`YYYY-MM-DD`) means midnight UTC at the start of that day, so pass the next day's date to include a whole day.
-      schema:
-        type: string
-    After:
-      name: after
-      in: query
-      required: false
-      description: Cursor for forward pagination. Pass the `endCursor` from the previous response.
-      schema:
-        type: string
-    Before:
-      name: before
-      in: query
-      required: false
-      description: Cursor for backward pagination. Pass the `startCursor` from the previous response.
-      schema:
-        type: string
-    UpdatedBefore:
-      name: updated_before
-      in: query
-      required: false
-      description: Return records updated at or before this time. Interpreted as UTC unless an offset is given. A bare date (`YYYY-MM-DD`) means midnight UTC at the start of that day, so pass the next day's date to include a whole day.
-      schema:
-        type: string
-  responses:
-    BadRequest:
-      description: Malformed request, such as an invalid date or cursor.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-    NotFound:
-      description: The record was not found, or the id could not be decoded.
-      content:
-        application/json:
-          schema:
-            oneOf:
-            - $ref: '#/components/schemas/ErrorResponse'
-            - $ref: '#/components/schemas/CodeErrorResponse'
-    Forbidden:
-      description: The token lacks the required OAuth scope.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/CodeErrorResponse'
-          example:
-            code: insufficient_scope
-    Unauthorized:
-      description: Missing or invalid token, or the API is not enabled for the team.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/CodeErrorResponse'
-          example:
-            code: invalid_token
-    InternalServerError:
-      description: Unexpected server error.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-          example:
-            error: Internal server error
-    TooManyRequests:
-      description: A rate limit was exceeded. The three time-window limits set a `Retry-After` header; the concurrency limit does not, so treat its absence as "retry once an in-flight request finishes".
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/CodeErrorResponse'
-          example:
-            code: rate_limited
-            message: Enterprise API rate limit exceeded
-    UnprocessableEntity:
-      description: The write was rejected, for example an unknown field, an invalid value, or a malformed batch.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ValidationErrorResponse'
   schemas:
+    CodeErrorResponse:
+      type: object
+      properties:
+        code:
+          type: string
+          description: Machine-readable error code.
+        message:
+          type: string
+          description: Human-readable error message.
+    ValidationErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Human-readable error message.
+        details:
+          type: object
+          description: Structured context identifying what was rejected, for example the offending field under `failed_field`. Keys vary by failure.
+          additionalProperties: true
+    Field:
+      type: object
+      description: A custom field definition.
+      properties:
+        id:
+          type: string
+          description: Encoded field identifier.
+        label:
+          type: string
+          description: Human-readable field label.
+        type:
+          type: string
+          description: 'Field data type: `string`, `text`, `decimal`, `boolean`, `email`, `phone`, `name`, `company`, `picklist`, `multi_picklist`, or `text_array`. Numeric fields are `decimal` — there is no `number` type. `multi_picklist` and `text_array` are returned only for teams with multi-select fields enabled.'
+        name:
+          type: string
+          description: Field API name, the key used in the `fields` object.
+        options:
+          type: array
+          description: Picklist options. Present only when `type` is `picklist`.
+          items:
+            type: object
+            properties:
+              value:
+                type: string
+                description: Stored option value.
+              label:
+                type: string
+                description: Option display label.
+        createdAt:
+          type: string
+          format: date-time
+          description: When the field was created.
+        updatedAt:
+          type: string
+          format: date-time
+          description: When the field was last updated.
     PageInfo:
       type: object
       description: Cursor-based pagination metadata.
@@ -303,16 +254,12 @@ components:
           - string
           - 'null'
           description: Cursor for the last item on this page.
-    ValidationErrorResponse:
+    ErrorResponse:
       type: object
       properties:
         error:
           type: string
           description: Human-readable error message.
-        details:
-          type: object
-          description: Structured context identifying what was rejected, for example the offending field under `failed_field`. Keys vary by failure.
-          additionalProperties: true
     Lead:
       type: object
       description: A lead (person) record, keyed on email, with its custom field values.
@@ -372,57 +319,110 @@ components:
           - string
           - 'null'
           description: Eloqua Contact ID, returned verbatim.
-    Field:
-      type: object
-      description: A custom field definition.
-      properties:
-        id:
-          type: string
-          description: Encoded field identifier.
-        label:
-          type: string
-          description: Human-readable field label.
-        type:
-          type: string
-          description: 'Field data type: `string`, `text`, `decimal`, `boolean`, `email`, `phone`, `name`, `company`, `picklist`, `multi_picklist`, or `text_array`. Numeric fields are `decimal` — there is no `number` type. `multi_picklist` and `text_array` are returned only for teams with multi-select fields enabled.'
-        name:
-          type: string
-          description: Field API name, the key used in the `fields` object.
-        options:
-          type: array
-          description: Picklist options. Present only when `type` is `picklist`.
-          items:
-            type: object
-            properties:
-              value:
-                type: string
-                description: Stored option value.
-              label:
-                type: string
-                description: Option display label.
-        createdAt:
-          type: string
-          format: date-time
-          description: When the field was created.
-        updatedAt:
-          type: string
-          format: date-time
-          description: When the field was last updated.
-    CodeErrorResponse:
-      type: object
-      properties:
-        code:
-          type: string
-          description: Machine-readable error code.
-        message:
-          type: string
-          description: Human-readable error message.
-    ErrorResponse:
-      type: object
-      properties:
-        error:
-          type: string
-          description: Human-readable error message.
+  parameters:
+    Email:
+      name: email
+      in: query
+      required: false
+      description: Return only the lead with this email address. Exact match, case-insensitive, with surrounding whitespace ignored.
+      schema:
+        type: string
+    CreatedBefore:
+      name: created_before
+      in: query
+      required: false
+      description: Return records created at or before this time. Accepts an ISO-8601 timestamp, interpreted as UTC unless it carries an offset. A bare date (`YYYY-MM-DD`) means midnight UTC at the start of that day, so pass the next day's date to include a whole day.
+      schema:
+        type: string
+    Before:
+      name: before
+      in: query
+      required: false
+      description: Cursor for backward pagination. Pass the `startCursor` from the previous response.
+      schema:
+        type: string
+    UpdatedAfter:
+      name: updated_after
+      in: query
+      required: false
+      description: Return records updated at or after this time. Interpreted as UTC unless an offset is given. A bare date (`YYYY-MM-DD`) means midnight UTC at the start of that day.
+      schema:
+        type: string
+    CreatedAfter:
+      name: created_after
+      in: query
+      required: false
+      description: Return records created at or after this time. Accepts an ISO-8601 timestamp, interpreted as UTC unless it carries an offset. A bare date (`YYYY-MM-DD`) means midnight UTC at the start of that day.
+      schema:
+        type: string
+    After:
+      name: after
+      in: query
+      required: false
+      description: Cursor for forward pagination. Pass the `endCursor` from the previous response.
+      schema:
+        type: string
+    UpdatedBefore:
+      name: updated_before
+      in: query
+      required: false
+      description: Return records updated at or before this time. Interpreted as UTC unless an offset is given. A bare date (`YYYY-MM-DD`) means midnight UTC at the start of that day, so pass the next day's date to include a whole day.
+      schema:
+        type: string
+  responses:
+    NotFound:
+      description: The record was not found, or the id could not be decoded.
+      content:
+        application/json:
+          schema:
+            oneOf:
+            - $ref: '#/components/schemas/ErrorResponse'
+            - $ref: '#/components/schemas/CodeErrorResponse'
+    BadRequest:
+      description: Malformed request, such as an invalid date or cursor.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Missing or invalid token, or the API is not enabled for the team.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CodeErrorResponse'
+          example:
+            code: invalid_token
+    TooManyRequests:
+      description: A rate limit was exceeded. The three time-window limits set a `Retry-After` header; the concurrency limit does not, so treat its absence as "retry once an in-flight request finishes".
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CodeErrorResponse'
+          example:
+            code: rate_limited
+            message: Enterprise API rate limit exceeded
+    InternalServerError:
+      description: Unexpected server error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: Internal server error
+    UnprocessableEntity:
+      description: The write was rejected, for example an unknown field, an invalid value, or a malformed batch.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ValidationErrorResponse'
+    Forbidden:
+      description: The token lacks the required OAuth scope.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CodeErrorResponse'
+          example:
+            code: insufficient_scope
   securitySchemes:
     bearerToken:
       type: http

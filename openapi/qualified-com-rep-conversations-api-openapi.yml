@@ -67,25 +67,16 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 components:
-  responses:
-    InternalServerError:
-      description: Unexpected server error.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-          example:
-            error: Internal server error
-    LegacyBadRequest:
-      description: Invalid `limit` or `starting_after`. The legacy endpoints return a `code`/`message` body rather than the `error` body used elsewhere.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/CodeErrorResponse'
-          example:
-            code: invalid_limit
-            message: ''
   schemas:
+    CodeErrorResponse:
+      type: object
+      properties:
+        code:
+          type: string
+          description: Machine-readable error code.
+        message:
+          type: string
+          description: Human-readable error message.
     RepConversation:
       type: object
       description: A visitor's conversation with a human rep (legacy reporting).
@@ -130,24 +121,31 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/LegacyMessage'
-    LegacyMeeting:
+    LegacyUser:
       type: object
-      description: A meeting within a legacy bot or rep conversation.
+      description: A rep, as returned by the legacy reporting endpoints.
       properties:
-        offer_sent_at:
+        id:
+          type: string
+          description: Encoded user id.
+        email:
+          type: string
+          description: Rep email.
+        name:
+          type: string
+          description: Rep name.
+    LegacyCall:
+      type: object
+      description: A voice call within a legacy rep conversation.
+      properties:
+        started_at:
           type: string
           format: date-time
-          description: When the meeting offer was sent.
-        ai:
-          type: boolean
-          description: True if the meeting was offered by AI.
-        booked_user:
-          type:
-          - object
-          - 'null'
-          allOf:
-          - $ref: '#/components/schemas/LegacyUser'
-          description: The rep the meeting was booked with, or null if no meeting was booked.
+          description: When the call started.
+        ended_at:
+          type: string
+          format: date-time
+          description: When the call ended.
     LegacyVisitor:
       type: object
       description: A visitor, as returned by the legacy reporting endpoints.
@@ -190,15 +188,24 @@ components:
           - string
           - 'null'
           description: Eloqua contact id, returned verbatim (not encoded).
-    CodeErrorResponse:
+    LegacyMeeting:
       type: object
+      description: A meeting within a legacy bot or rep conversation.
       properties:
-        code:
+        offer_sent_at:
           type: string
-          description: Machine-readable error code.
-        message:
-          type: string
-          description: Human-readable error message.
+          format: date-time
+          description: When the meeting offer was sent.
+        ai:
+          type: boolean
+          description: True if the meeting was offered by AI.
+        booked_user:
+          type:
+          - object
+          - 'null'
+          allOf:
+          - $ref: '#/components/schemas/LegacyUser'
+          description: The rep the meeting was booked with, or null if no meeting was booked.
     RepConversationResponse:
       type: object
       properties:
@@ -208,19 +215,6 @@ components:
             $ref: '#/components/schemas/RepConversation'
         meta:
           $ref: '#/components/schemas/LegacyPageMeta'
-    LegacyUser:
-      type: object
-      description: A rep, as returned by the legacy reporting endpoints.
-      properties:
-        id:
-          type: string
-          description: Encoded user id.
-        email:
-          type: string
-          description: Rep email.
-        name:
-          type: string
-          description: Rep name.
     LegacyPageMeta:
       type: object
       description: Pagination metadata for the legacy reporting endpoints.
@@ -231,18 +225,6 @@ components:
         end_cursor:
           type: string
           description: Object id of the last conversation in this page. Pass as `starting_after` to fetch the next page.
-    LegacyCall:
-      type: object
-      description: A voice call within a legacy rep conversation.
-      properties:
-        started_at:
-          type: string
-          format: date-time
-          description: When the call started.
-        ended_at:
-          type: string
-          format: date-time
-          description: When the call ended.
     ErrorResponse:
       type: object
       properties:
@@ -278,6 +260,24 @@ components:
         text:
           type: string
           description: Message text.
+  responses:
+    LegacyBadRequest:
+      description: Invalid `limit` or `starting_after`. The legacy endpoints return a `code`/`message` body rather than the `error` body used elsewhere.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CodeErrorResponse'
+          example:
+            code: invalid_limit
+            message: ''
+    InternalServerError:
+      description: Unexpected server error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: Internal server error
   securitySchemes:
     bearerToken:
       type: http

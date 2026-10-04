@@ -146,6 +146,15 @@ paths:
           $ref: '#/components/responses/InternalServerError'
 components:
   schemas:
+    CodeErrorResponse:
+      type: object
+      properties:
+        code:
+          type: string
+          description: Machine-readable error code.
+        message:
+          type: string
+          description: Human-readable error message.
     Message:
       type: object
       description: A single message within a conversation. Messages are immutable.
@@ -201,6 +210,12 @@ components:
           - string
           - 'null'
           description: Cursor for the last item on this page.
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Human-readable error message.
     Conversation:
       type: object
       description: An engaged chat conversation between a visitor and a rep, bot, or AI assistant.
@@ -239,28 +254,7 @@ components:
         visitorId:
           type: string
           description: Encoded id of the visitor this conversation belongs to. Always present and immutable, so it is the durable key whether or not the visitor is identified. Match it against a lead's `visitorIds` to resolve the conversation to a person.
-    CodeErrorResponse:
-      type: object
-      properties:
-        code:
-          type: string
-          description: Machine-readable error code.
-        message:
-          type: string
-          description: Human-readable error message.
-    ErrorResponse:
-      type: object
-      properties:
-        error:
-          type: string
-          description: Human-readable error message.
   responses:
-    BadRequest:
-      description: Malformed request, such as an invalid date or cursor.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
     NotFound:
       description: The record was not found, or the id could not be decoded.
       content:
@@ -269,14 +263,12 @@ components:
             oneOf:
             - $ref: '#/components/schemas/ErrorResponse'
             - $ref: '#/components/schemas/CodeErrorResponse'
-    Forbidden:
-      description: The token lacks the required OAuth scope.
+    BadRequest:
+      description: Malformed request, such as an invalid date or cursor.
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/CodeErrorResponse'
-          example:
-            code: insufficient_scope
+            $ref: '#/components/schemas/ErrorResponse'
     Unauthorized:
       description: Missing or invalid token, or the API is not enabled for the team.
       content:
@@ -285,14 +277,6 @@ components:
             $ref: '#/components/schemas/CodeErrorResponse'
           example:
             code: invalid_token
-    InternalServerError:
-      description: Unexpected server error.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-          example:
-            error: Internal server error
     TooManyRequests:
       description: A rate limit was exceeded. The three time-window limits set a `Retry-After` header; the concurrency limit does not, so treat its absence as "retry once an in-flight request finishes".
       content:
@@ -302,12 +286,35 @@ components:
           example:
             code: rate_limited
             message: Enterprise API rate limit exceeded
+    InternalServerError:
+      description: Unexpected server error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: Internal server error
+    Forbidden:
+      description: The token lacks the required OAuth scope.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CodeErrorResponse'
+          example:
+            code: insufficient_scope
   parameters:
-    CreatedAfter:
-      name: created_after
+    CreatedBefore:
+      name: created_before
       in: query
       required: false
-      description: Return records created at or after this time. Accepts an ISO-8601 timestamp, interpreted as UTC unless it carries an offset. A bare date (`YYYY-MM-DD`) means midnight UTC at the start of that day.
+      description: Return records created at or before this time. Accepts an ISO-8601 timestamp, interpreted as UTC unless it carries an offset. A bare date (`YYYY-MM-DD`) means midnight UTC at the start of that day, so pass the next day's date to include a whole day.
+      schema:
+        type: string
+    Before:
+      name: before
+      in: query
+      required: false
+      description: Cursor for backward pagination. Pass the `startCursor` from the previous response.
       schema:
         type: string
     UpdatedAfter:
@@ -317,11 +324,18 @@ components:
       description: Return records updated at or after this time. Interpreted as UTC unless an offset is given. A bare date (`YYYY-MM-DD`) means midnight UTC at the start of that day.
       schema:
         type: string
-    CreatedBefore:
-      name: created_before
+    VisitorId:
+      name: visitor_id
       in: query
       required: false
-      description: Return records created at or before this time. Accepts an ISO-8601 timestamp, interpreted as UTC unless it carries an offset. A bare date (`YYYY-MM-DD`) means midnight UTC at the start of that day, so pass the next day's date to include a whole day.
+      description: Return only records for this visitor, including activity recorded before the visitor was identified. To pull everything for one person, read the lead's `visitorIds` and query each in turn.
+      schema:
+        type: string
+    CreatedAfter:
+      name: created_after
+      in: query
+      required: false
+      description: Return records created at or after this time. Accepts an ISO-8601 timestamp, interpreted as UTC unless it carries an offset. A bare date (`YYYY-MM-DD`) means midnight UTC at the start of that day.
       schema:
         type: string
     After:
@@ -331,13 +345,6 @@ components:
       description: Cursor for forward pagination. Pass the `endCursor` from the previous response.
       schema:
         type: string
-    EndedBefore:
-      name: ended_before
-      in: query
-      required: false
-      description: Return records that ended at or before this time. Interpreted as UTC unless an offset is given. A bare date (`YYYY-MM-DD`) means midnight UTC at the start of that day, so pass the next day's date to include a whole day.
-      schema:
-        type: string
     EndedAfter:
       name: ended_after
       in: query
@@ -345,18 +352,11 @@ components:
       description: Return records that ended at or after this time. Interpreted as UTC unless an offset is given. A bare date (`YYYY-MM-DD`) means midnight UTC at the start of that day.
       schema:
         type: string
-    VisitorId:
-      name: visitor_id
+    EndedBefore:
+      name: ended_before
       in: query
       required: false
-      description: Return only records for this visitor, including activity recorded before the visitor was identified. To pull everything for one person, read the lead's `visitorIds` and query each in turn.
-      schema:
-        type: string
-    Before:
-      name: before
-      in: query
-      required: false
-      description: Cursor for backward pagination. Pass the `startCursor` from the previous response.
+      description: Return records that ended at or before this time. Interpreted as UTC unless an offset is given. A bare date (`YYYY-MM-DD`) means midnight UTC at the start of that day, so pass the next day's date to include a whole day.
       schema:
         type: string
     UpdatedBefore:

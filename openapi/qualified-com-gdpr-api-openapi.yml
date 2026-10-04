@@ -81,32 +81,6 @@ paths:
                 error:
                   message: Failed to create deletion request.
 components:
-  responses:
-    Unauthorized:
-      description: Missing or invalid token, or the API is not enabled for the team.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/CodeErrorResponse'
-          example:
-            code: invalid_token
-    Forbidden:
-      description: The token lacks the required OAuth scope.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/CodeErrorResponse'
-          example:
-            code: insufficient_scope
-    TooManyRequests:
-      description: A rate limit was exceeded. The three time-window limits set a `Retry-After` header; the concurrency limit does not, so treat its absence as "retry once an in-flight request finishes".
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/CodeErrorResponse'
-          example:
-            code: rate_limited
-            message: Enterprise API rate limit exceeded
   schemas:
     CodeErrorResponse:
       type: object
@@ -135,6 +109,32 @@ components:
         message:
           type: string
           description: Human-readable status message.
+  responses:
+    Forbidden:
+      description: The token lacks the required OAuth scope.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CodeErrorResponse'
+          example:
+            code: insufficient_scope
+    Unauthorized:
+      description: Missing or invalid token, or the API is not enabled for the team.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CodeErrorResponse'
+          example:
+            code: invalid_token
+    TooManyRequests:
+      description: A rate limit was exceeded. The three time-window limits set a `Retry-After` header; the concurrency limit does not, so treat its absence as "retry once an in-flight request finishes".
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CodeErrorResponse'
+          example:
+            code: rate_limited
+            message: Enterprise API rate limit exceeded
   securitySchemes:
     bearerToken:
       type: http

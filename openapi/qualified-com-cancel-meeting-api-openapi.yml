@@ -72,7 +72,37 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 components:
+  schemas:
+    CodeErrorResponse:
+      type: object
+      properties:
+        code:
+          type: string
+          description: Machine-readable error code.
+        message:
+          type: string
+          description: Human-readable error message.
+    MessageResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          description: Human-readable status message.
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Human-readable error message.
   responses:
+    Forbidden:
+      description: The token lacks the required OAuth scope.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CodeErrorResponse'
+          example:
+            code: insufficient_scope
     InternalServerError:
       description: Unexpected server error.
       content:
@@ -89,14 +119,6 @@ components:
             $ref: '#/components/schemas/CodeErrorResponse'
           example:
             code: invalid_token
-    Forbidden:
-      description: The token lacks the required OAuth scope.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/CodeErrorResponse'
-          example:
-            code: insufficient_scope
     TooManyRequests:
       description: A rate limit was exceeded. The three time-window limits set a `Retry-After` header; the concurrency limit does not, so treat its absence as "retry once an in-flight request finishes".
       content:
@@ -106,28 +128,6 @@ components:
           example:
             code: rate_limited
             message: Enterprise API rate limit exceeded
-  schemas:
-    CodeErrorResponse:
-      type: object
-      properties:
-        code:
-          type: string
-          description: Machine-readable error code.
-        message:
-          type: string
-          description: Human-readable error message.
-    ErrorResponse:
-      type: object
-      properties:
-        error:
-          type: string
-          description: Human-readable error message.
-    MessageResponse:
-      type: object
-      properties:
-        message:
-          type: string
-          description: Human-readable status message.
   securitySchemes:
     bearerToken:
       type: http
