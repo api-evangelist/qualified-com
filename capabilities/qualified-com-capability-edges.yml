@@ -1,0 +1,35 @@
+slug: qualified-com
+provider: Qualified
+generated_by: planning/capability-mapping/scripts/classify_capabilities.py
+model: claude-opus-5
+frame:
+- Software & Technology
+min_confidence: 0.7
+capability_model:
+  source: https://github.com/vincentmakes/turbo-ea-capabilities
+  license: CC-BY-4.0
+  attribution: Turbo EA Capabilities by Vincent Verdet — Turbo EA, https://github.com/vincentmakes/turbo-ea-capabilities,
+    CC BY 4.0
+  notice: NOTICE
+edge_count: 2
+edges:
+- tag: GDPR
+  spec_file: qualified-com-gdpr-api-openapi.yml
+  capability_id: BC-130.50
+  capability_id_l1: BC-130
+  capability_name: Privacy & Data Protection Management
+  confidence: 0.8
+  evidence: POST /v2/gdpr_deletion_requests createGdprDeletionRequest Submit a GDPR deletion request
+  reason: The operation submits data-subject erasure requests under GDPR, which is squarely privacy and
+    data-protection compliance (data subject rights). Slight ambiguity only over whether it should sit
+    under SaaS service-privacy commitments instead.
+- tag: Leads
+  spec_file: qualified-com-leads-api-openapi.yml
+  capability_id: BC-410.30
+  capability_id_l1: BC-410
+  capability_name: Opportunity & Pipeline Management
+  confidence: 0.7
+  evidence: POST /v2/leads upsertLead Create or update a lead; GET /v2/leads/fields listLeadFields
+  reason: Creating, reading and updating lead records with their custom fields is lead lifecycle management
+    feeding the sales pipeline from the AI SDR platform. Some chance it is better classed as customer
+    data management, hence not higher.
