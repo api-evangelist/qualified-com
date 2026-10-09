@@ -64,3 +64,27 @@ included_in_all_plans:
 - Salesforce reporting and analytics
 - Advanced conversation, email, and meeting routing
 - Automated workflow actions and notifications in third party systems
+x-canonical:
+  generated: '2026-10-08'
+  vocabulary: all/0-working/economics/plans-canonical.yml
+  models: []
+  units: []
+  plans:
+  - name: Premier
+    access: other
+    model: unstated
+    model_how: derived
+    units: []
+    periods: []
+  - name: Enterprise
+    access: other
+    model: unstated
+    model_how: derived
+    units: []
+    periods: []
+  - name: Ultimate
+    access: other
+    model: unstated
+    model_how: derived
+    units: []
+    periods: []
