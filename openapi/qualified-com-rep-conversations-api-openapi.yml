@@ -67,14 +67,149 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 components:
+  responses:
+    InternalServerError:
+      description: Unexpected server error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: Internal server error
+    LegacyBadRequest:
+      description: Invalid `limit` or `starting_after`. The legacy endpoints return a `code`/`message` body rather than the `error` body used elsewhere.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CodeErrorResponse'
+          example:
+            code: invalid_limit
+            message: ''
   schemas:
-    CodeErrorResponse:
+    LegacyPageMeta:
+      type: object
+      description: Pagination metadata for the legacy reporting endpoints.
+      properties:
+        has_more:
+          type: boolean
+          description: True if more conversations can be fetched after this page.
+        end_cursor:
+          type: string
+          description: Object id of the last conversation in this page. Pass as `starting_after` to fetch the next page.
+    RepConversationResponse:
       type: object
       properties:
-        code:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/RepConversation'
+        meta:
+          $ref: '#/components/schemas/LegacyPageMeta'
+    LegacyVisitor:
+      type: object
+      description: A visitor, as returned by the legacy reporting endpoints.
+      properties:
+        id:
           type: string
-          description: Machine-readable error code.
-        message:
+          description: Encoded visitor id.
+        email:
+          type:
+          - string
+          - 'null'
+          description: Visitor email, or null if unknown.
+        salesforce_lead_id:
+          type:
+          - string
+          - 'null'
+          description: Salesforce lead id, returned verbatim (not encoded).
+        salesforce_contact_id:
+          type:
+          - string
+          - 'null'
+          description: Salesforce contact id, returned verbatim (not encoded).
+        pardot_prospect_id:
+          type:
+          - string
+          - 'null'
+          description: Pardot prospect id, returned verbatim (not encoded).
+        marketo_lead_id:
+          type:
+          - string
+          - 'null'
+          description: Marketo lead id, returned verbatim (not encoded).
+        hubspot_contact_id:
+          type:
+          - string
+          - 'null'
+          description: HubSpot contact id, returned verbatim (not encoded).
+        eloqua_contact_id:
+          type:
+          - string
+          - 'null'
+          description: Eloqua contact id, returned verbatim (not encoded).
+    LegacyCall:
+      type: object
+      description: A voice call within a legacy rep conversation.
+      properties:
+        started_at:
+          type: string
+          format: date-time
+          description: When the call started.
+        ended_at:
+          type: string
+          format: date-time
+          description: When the call ended.
+    LegacyMessage:
+      type: object
+      description: A message within a legacy bot or rep conversation.
+      properties:
+        sent_at:
+          type: string
+          format: date-time
+          description: When the message was sent.
+        ai:
+          type: boolean
+          description: True if the message was sent by AI.
+        visitor_id:
+          type:
+          - string
+          - 'null'
+          description: Encoded id of the visitor who sent it, or null.
+        bot_id:
+          type:
+          - string
+          - 'null'
+          description: Encoded id of the bot that sent it, or null.
+        user_id:
+          type:
+          - string
+          - 'null'
+          description: Encoded id of the rep who sent it, or null.
+        text:
+          type: string
+          description: Message text.
+    LegacyMeeting:
+      type: object
+      description: A meeting within a legacy bot or rep conversation.
+      properties:
+        offer_sent_at:
+          type: string
+          format: date-time
+          description: When the meeting offer was sent.
+        ai:
+          type: boolean
+          description: True if the meeting was offered by AI.
+        booked_user:
+          type:
+          - object
+          - 'null'
+          allOf:
+          - $ref: '#/components/schemas/LegacyUser'
+          description: The rep the meeting was booked with, or null if no meeting was booked.
+    ErrorResponse:
+      type: object
+      properties:
+        error:
           type: string
           description: Human-readable error message.
     RepConversation:
@@ -134,150 +269,15 @@ components:
         name:
           type: string
           description: Rep name.
-    LegacyCall:
+    CodeErrorResponse:
       type: object
-      description: A voice call within a legacy rep conversation.
       properties:
-        started_at:
+        code:
           type: string
-          format: date-time
-          description: When the call started.
-        ended_at:
-          type: string
-          format: date-time
-          description: When the call ended.
-    LegacyVisitor:
-      type: object
-      description: A visitor, as returned by the legacy reporting endpoints.
-      properties:
-        id:
-          type: string
-          description: Encoded visitor id.
-        email:
-          type:
-          - string
-          - 'null'
-          description: Visitor email, or null if unknown.
-        salesforce_lead_id:
-          type:
-          - string
-          - 'null'
-          description: Salesforce lead id, returned verbatim (not encoded).
-        salesforce_contact_id:
-          type:
-          - string
-          - 'null'
-          description: Salesforce contact id, returned verbatim (not encoded).
-        pardot_prospect_id:
-          type:
-          - string
-          - 'null'
-          description: Pardot prospect id, returned verbatim (not encoded).
-        marketo_lead_id:
-          type:
-          - string
-          - 'null'
-          description: Marketo lead id, returned verbatim (not encoded).
-        hubspot_contact_id:
-          type:
-          - string
-          - 'null'
-          description: HubSpot contact id, returned verbatim (not encoded).
-        eloqua_contact_id:
-          type:
-          - string
-          - 'null'
-          description: Eloqua contact id, returned verbatim (not encoded).
-    LegacyMeeting:
-      type: object
-      description: A meeting within a legacy bot or rep conversation.
-      properties:
-        offer_sent_at:
-          type: string
-          format: date-time
-          description: When the meeting offer was sent.
-        ai:
-          type: boolean
-          description: True if the meeting was offered by AI.
-        booked_user:
-          type:
-          - object
-          - 'null'
-          allOf:
-          - $ref: '#/components/schemas/LegacyUser'
-          description: The rep the meeting was booked with, or null if no meeting was booked.
-    RepConversationResponse:
-      type: object
-      properties:
-        data:
-          type: array
-          items:
-            $ref: '#/components/schemas/RepConversation'
-        meta:
-          $ref: '#/components/schemas/LegacyPageMeta'
-    LegacyPageMeta:
-      type: object
-      description: Pagination metadata for the legacy reporting endpoints.
-      properties:
-        has_more:
-          type: boolean
-          description: True if more conversations can be fetched after this page.
-        end_cursor:
-          type: string
-          description: Object id of the last conversation in this page. Pass as `starting_after` to fetch the next page.
-    ErrorResponse:
-      type: object
-      properties:
-        error:
+          description: Machine-readable error code.
+        message:
           type: string
           description: Human-readable error message.
-    LegacyMessage:
-      type: object
-      description: A message within a legacy bot or rep conversation.
-      properties:
-        sent_at:
-          type: string
-          format: date-time
-          description: When the message was sent.
-        ai:
-          type: boolean
-          description: True if the message was sent by AI.
-        visitor_id:
-          type:
-          - string
-          - 'null'
-          description: Encoded id of the visitor who sent it, or null.
-        bot_id:
-          type:
-          - string
-          - 'null'
-          description: Encoded id of the bot that sent it, or null.
-        user_id:
-          type:
-          - string
-          - 'null'
-          description: Encoded id of the rep who sent it, or null.
-        text:
-          type: string
-          description: Message text.
-  responses:
-    LegacyBadRequest:
-      description: Invalid `limit` or `starting_after`. The legacy endpoints return a `code`/`message` body rather than the `error` body used elsewhere.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/CodeErrorResponse'
-          example:
-            code: invalid_limit
-            message: ''
-    InternalServerError:
-      description: Unexpected server error.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-          example:
-            error: Internal server error
   securitySchemes:
     bearerToken:
       type: http

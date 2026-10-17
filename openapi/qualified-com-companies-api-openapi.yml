@@ -101,25 +101,6 @@ paths:
           $ref: '#/components/responses/InternalServerError'
 components:
   schemas:
-    CodeErrorResponse:
-      type: object
-      properties:
-        code:
-          type: string
-          description: Machine-readable error code.
-        message:
-          type: string
-          description: Human-readable error message.
-    ValidationErrorResponse:
-      type: object
-      properties:
-        error:
-          type: string
-          description: Human-readable error message.
-        details:
-          type: object
-          description: Structured context identifying what was rejected, for example the offending field under `failed_field`. Keys vary by failure.
-          additionalProperties: true
     Field:
       type: object
       description: A custom field definition.
@@ -156,6 +137,16 @@ components:
           type: string
           format: date-time
           description: When the field was last updated.
+    ValidationErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Human-readable error message.
+        details:
+          type: object
+          description: Structured context identifying what was rejected, for example the offending field under `failed_field`. Keys vary by failure.
+          additionalProperties: true
     Company:
       type: object
       description: A company (account) record. Returned only from the upsert response.
@@ -189,15 +180,16 @@ components:
         error:
           type: string
           description: Human-readable error message.
+    CodeErrorResponse:
+      type: object
+      properties:
+        code:
+          type: string
+          description: Machine-readable error code.
+        message:
+          type: string
+          description: Human-readable error message.
   responses:
-    Forbidden:
-      description: The token lacks the required OAuth scope.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/CodeErrorResponse'
-          example:
-            code: insufficient_scope
     InternalServerError:
       description: Unexpected server error.
       content:
@@ -206,20 +198,18 @@ components:
             $ref: '#/components/schemas/ErrorResponse'
           example:
             error: Internal server error
+    UnprocessableEntity:
+      description: The write was rejected, for example an unknown field, an invalid value, or a malformed batch.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ValidationErrorResponse'
     BadRequest:
       description: Malformed request, such as an invalid date or cursor.
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
-    Unauthorized:
-      description: Missing or invalid token, or the API is not enabled for the team.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/CodeErrorResponse'
-          example:
-            code: invalid_token
     TooManyRequests:
       description: A rate limit was exceeded. The three time-window limits set a `Retry-After` header; the concurrency limit does not, so treat its absence as "retry once an in-flight request finishes".
       content:
@@ -229,12 +219,22 @@ components:
           example:
             code: rate_limited
             message: Enterprise API rate limit exceeded
-    UnprocessableEntity:
-      description: The write was rejected, for example an unknown field, an invalid value, or a malformed batch.
+    Unauthorized:
+      description: Missing or invalid token, or the API is not enabled for the team.
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/ValidationErrorResponse'
+            $ref: '#/components/schemas/CodeErrorResponse'
+          example:
+            code: invalid_token
+    Forbidden:
+      description: The token lacks the required OAuth scope.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/CodeErrorResponse'
+          example:
+            code: insufficient_scope
   securitySchemes:
     bearerToken:
       type: http
