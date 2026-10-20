@@ -1,5 +1,58 @@
 generated: '2026-10-14'
 edges:
+- partner_name: Microsoft Teams (own)
+  partner: microsoft-teams
+  partner_match: mirror
+  mirror_match: domain
+  type: marketplace
+  relationship: platform-app
+  direction: third-party
+  channel: partner-built
+  marketplace: own
+  evidence: https://appsource.microsoft.com/en-us/product/office/WA200002720
+  mirror_of: microsoft-teams/integrations/microsoft-teams-integration-edges.yml
+  apps:
+  - Qualified
+  listing_count: 1
+  detected: '2026-10-18'
+  detected_by: mirror-platform-listings.py
+  category: Microsoft Teams app
+  publisher_verified:
+  - Microsoft 365 Certified
+- partner_name: Slack (own)
+  partner: slack
+  partner_match: mirror
+  mirror_match: domain
+  type: marketplace
+  relationship: platform-app
+  direction: third-party
+  channel: partner-built
+  marketplace: own
+  evidence: https://slack.com/marketplace/ASM2SQXPX-qualified
+  mirror_of: slack/integrations/slack-integration-edges.yml
+  apps:
+  - Qualified
+  listing_count: 1
+  detected: '2026-10-18'
+  detected_by: mirror-platform-listings.py
+  category: Slack app
+- partner_name: Zoom (own)
+  partner: zoom
+  partner_match: mirror
+  mirror_match: domain
+  type: marketplace
+  relationship: platform-app
+  direction: third-party
+  channel: partner-built
+  marketplace: own
+  evidence: https://marketplace.zoom.us/apps/7-DqxMmsSPqoDpO4uTN5qw
+  mirror_of: zoom/integrations/zoom-integration-edges.yml
+  apps:
+  - Qualified
+  listing_count: 1
+  detected: '2026-10-18'
+  detected_by: mirror-platform-listings.py
+  category: Zoom app
 - partner_name: Twilio Segment
   partner: segment
   partner_match: aggregator
@@ -80,61 +133,40 @@ edges:
     builder: 'community (Meltano Hub variant maintainers: z3z1ma)'
   detected_by: sweep-data-integration.py
   first_seen: '2026-10-18'
-- partner_name: Microsoft Teams (own)
-  partner: microsoft-teams
-  partner_match: mirror
-  mirror_match: domain
-  type: marketplace
-  relationship: platform-app
-  direction: third-party
-  channel: partner-built
-  marketplace: own
-  evidence: https://appsource.microsoft.com/en-us/product/office/WA200002720
-  mirror_of: microsoft-teams/integrations/microsoft-teams-integration-edges.yml
-  apps:
-  - Qualified
-  listing_count: 1
-  detected: '2026-10-18'
-  detected_by: mirror-platform-listings.py
-  category: Microsoft Teams app
-  publisher_verified:
-  - Microsoft 365 Certified
-- partner_name: Slack (own)
-  partner: slack
-  partner_match: mirror
-  mirror_match: domain
-  type: marketplace
-  relationship: platform-app
-  direction: third-party
-  channel: partner-built
-  marketplace: own
-  evidence: https://slack.com/marketplace/ASM2SQXPX-qualified
-  mirror_of: slack/integrations/slack-integration-edges.yml
-  apps:
-  - Qualified
-  listing_count: 1
-  detected: '2026-10-18'
-  detected_by: mirror-platform-listings.py
-  category: Slack app
-- partner_name: Zoom (own)
-  partner: zoom
-  partner_match: mirror
-  mirror_match: domain
-  type: marketplace
-  relationship: platform-app
-  direction: third-party
-  channel: partner-built
-  marketplace: own
-  evidence: https://marketplace.zoom.us/apps/7-DqxMmsSPqoDpO4uTN5qw
-  mirror_of: zoom/integrations/zoom-integration-edges.yml
-  apps:
-  - Qualified
-  listing_count: 1
-  detected: '2026-10-18'
-  detected_by: mirror-platform-listings.py
-  category: Zoom app
+- partner_name: Cloud Security Alliance STAR Registry
+  partner: null
+  partner_match: register
+  type: register
+  channel: standard-directory
+  relationship: standard-participant
+  direction: partner-built
+  evidence: https://cloudsecurityalliance.org/star/registry/qualified-com-inc/services/qualified-com-inc
+  category: Cloud security assurance
+  contract_reference:
+    register: CSA STAR Registry (cloudsecurityalliance.org/star/registry)
+    spec_file: null
+    standard: CSA STAR
+    role: star-level-1
+    registered_name: Qualified.com, Inc.
+    registry_id: qualified-com-inc
+    service_url: https://www.qualified.com
+    matched_domain: qualified.com
+    matched_by: domain
+    identity_source: the service URL the organisation filed on its STAR listing (no lookup)
+    levels:
+    - STAR Level 1
+    certified_products: []
+    signal_note: STAR Level 1 (CAIQ self-assessment) = participation; certified_products = one entry per STAR Level
+      2 / STAR for AI Level 2 assessment TYPE (third-party certification, attestation, C-STAR, ValidAIted); lapsed
+      = every instance marked (Deprecated) by the registry; service counts never recorded
+    detected_by: sweep-compliance-assurance.py
+    detected: '2026-10-20'
+  detected_by: sweep-compliance-assurance.py
+  first_seen: '2026-10-20'
 method: searched
 checked:
+- https://cloudsecurityalliance.org/star/registry
+- https://eucoc.cloud/en/public-register/list-of-adherent-services
 - https://github.com/meltano/hub
 - https://hightouch.com/docs/destinations/qualified
 - https://www.twilio.com/docs/segment/connections/destinations/catalog/actions-qualified
