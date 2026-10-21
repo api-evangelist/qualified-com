@@ -217,6 +217,23 @@ edges:
   detected: '2026-10-21'
   detected_by: mirror-platform-listings.py
   category: marketingAutomation
+- partner_name: HubSpot (own)
+  partner: hubspot
+  partner_match: mirror
+  mirror_match: domain
+  type: marketplace
+  relationship: platform-app
+  direction: third-party
+  channel: partner-built
+  marketplace: own
+  evidence: https://ecosystem.hubspot.com/marketplace/listing/qualified
+  mirror_of: hubspot/integrations/hubspot-integration-edges.yml
+  apps:
+  - Qualified
+  listing_count: 1
+  detected: '2026-10-21'
+  detected_by: mirror-platform-listings.py
+  category: EMAIL
 method: searched
 checked:
 - https://cloudsecurityalliance.org/star/registry
@@ -234,6 +251,7 @@ checked:
 - https://developer.salesforce.com/docs/atlas.en-us.packagingGuide.meta/packagingGuide/security_review_overview.htm
 - https://slack.com/marketplace
 - salesforce/integrations/salesforce-integration-edges.yml
+- hubspot/integrations/hubspot-integration-edges.yml
 source:
 - https://hightouch.com/docs/destinations/qualified
 - https://www.twilio.com/docs/segment/connections/destinations/catalog/actions-qualified
