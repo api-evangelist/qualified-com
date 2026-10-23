@@ -189,3 +189,16 @@
   relationship: platform-app
   status: not-a-workflow
   arazzo: null
+- slug: qualified-com-marketo-own
+  label: Marketo (own)
+  partner: marketo
+  partner_name: Marketo (own)
+  category: Adobe Exchange Experience Cloud listing (Marketo Engage)
+  type: marketplace
+  marketplace: own
+  channel: partner-built
+  evidence: https://exchange.adobe.com/apps/ec/107589
+  source: edge
+  relationship: platform-app
+  status: not-a-workflow
+  arazzo: null

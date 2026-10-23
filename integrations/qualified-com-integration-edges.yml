@@ -234,6 +234,24 @@ edges:
   detected: '2026-10-21'
   detected_by: mirror-platform-listings.py
   category: EMAIL
+- partner_name: Marketo (own)
+  partner: marketo
+  partner_match: mirror
+  mirror_match: domain
+  type: marketplace
+  relationship: platform-app
+  direction: third-party
+  channel: partner-built
+  marketplace: own
+  evidence: https://exchange.adobe.com/apps/ec/107589
+  mirror_of: marketo/integrations/marketo-integration-edges.yml
+  apps:
+  - Qualified.com — Live Chat and Chatbots
+  - Qualified.com
+  listing_count: 1
+  detected: '2026-10-23'
+  detected_by: mirror-platform-listings.py
+  category: Adobe Exchange Experience Cloud listing (Marketo Engage)
 method: searched
 checked:
 - https://cloudsecurityalliance.org/star/registry
@@ -252,6 +270,7 @@ checked:
 - https://slack.com/marketplace
 - salesforce/integrations/salesforce-integration-edges.yml
 - hubspot/integrations/hubspot-integration-edges.yml
+- marketo/integrations/marketo-integration-edges.yml
 source:
 - https://hightouch.com/docs/destinations/qualified
 - https://www.twilio.com/docs/segment/connections/destinations/catalog/actions-qualified
