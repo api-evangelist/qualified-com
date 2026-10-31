@@ -64,5 +64,152 @@
 > Full detail: **[Where this data comes from](https://apievangelist.com/about/where-our-data-comes-from)**
 <!-- API-EVANGELIST-PROVENANCE:END -->
 
-Qualified is a company surfaced via the API Evangelist harvest backlog (source: secondary-market) and added to the network as a stub for full-pipeline profiling.
-- https://forgeglobal.com/qualified-com_stock/
+Qualified is a San Francisco based B2B agentic marketing platform built around Piper, an AI SDR agent that engages website visitors in real time with chat, voice, video, email, meeting booking and personalized offers, and works natively alongside Salesforce, HubSpot, Marketo, Eloqua, Outreach, Salesloft, 6sense, Demandbase and Slack. The company publishes the Qualified Enterprise API, a versioned REST contract at api.qualified.com that exposes the underlying records behind the platform — leads, website sessions, conversations, messages, meetings and outbound emails — plus write endpoints for leads and companies, a bulk job endpoint and a GDPR deletion request endpoint, so customers can pipe engagement data into Snowflake, Databricks, BigQuery, Adobe AEP or Eloqua and write enriched records back. The API is bearer-token authenticated with named OAuth-style scopes, cursor paginated, documented for incremental (delta) sync, and is available on the Enterprise and Ultimate plan tiers.
+
+**Areas:** Company · Conversational Marketing · Sales · Marketing · Artificial Intelligence · AI Agents · Lead Generation · Customer Engagement · Salesforce · Analytics
+
+## Qualified on APIs.io
+
+Everything profiled for Qualified is published on APIs.io rather than in this repository. Start at the provider page — **[apis.io/providers/qualified-com/](https://apis.io/providers/qualified-com/)** — or go straight to one of the APIs or properties below.
+
+### APIs (12)
+
+- [Qualified Bot Conversations API](https://apis.io/apis/qualified-com/qualified-com-bot-conversations-api/) — (Legacy) A visitor's conversations with a bot, in a self-contained shape. Superseded by the Conversations and Messages endpoints, which are recommended for…
+- [Qualified Bulk API](https://apis.io/apis/qualified-com/qualified-com-bulk-api/) — Submit batches of writes for asynchronous processing.
+- [Qualified Cancel Meeting API](https://apis.io/apis/qualified-com/qualified-com-cancel-meeting-api/) — Cancel a booked meeting by its Salesforce Event ID.
+- [Qualified Companies API](https://apis.io/apis/qualified-com/qualified-com-companies-api/) — Create and update accounts by domain. Companies cannot be read back.
+- [Qualified Conversations API](https://apis.io/apis/qualified-com/qualified-com-conversations-api/) — Engaged chat conversations, meaning the visitor exchanged messages with a rep, bot, or AI assistant.
+- [Qualified Emails API](https://apis.io/apis/qualified-com/qualified-com-emails-api/) — Outbound email activity sent from Qualified, with engagement timestamps.
+- [Qualified GDPR API](https://apis.io/apis/qualified-com/qualified-com-gdpr-api/) — Submit GDPR deletion requests by email.
+- [Qualified Leads API](https://apis.io/apis/qualified-com/qualified-com-leads-api/) — Create, update, and read lead (person) records and their custom field values.
+- [Qualified Meetings API](https://apis.io/apis/qualified-com/qualified-com-meetings-api/) — Meetings offered or booked with a visitor.
+- [Qualified Messages API](https://apis.io/apis/qualified-com/qualified-com-messages-api/) — Individual messages, either across all conversations or within one.
+- [Qualified Rep Conversations API](https://apis.io/apis/qualified-com/qualified-com-rep-conversations-api/) — (Legacy) A visitor's conversations with a human rep, in a self-contained shape. Superseded by the Conversations and Messages endpoints, which are…
+- [Qualified Sessions API](https://apis.io/apis/qualified-com/qualified-com-sessions-api/) — Website sessions, with page views and the conversations and meetings that occurred in them.
+
+### Published properties
+
+Each property below is a page on APIs.io carrying the machine-readable artifact and what it says.
+
+#### MCP servers (1)
+
+Model Context Protocol servers that expose the API to agents.
+
+- [Qualified Enterprise API (candidate MCP surface)](https://apis.io/servers/qualified-com/qualified-enterprise-api-candidate-mcp-surface/)
+
+#### Overlays (13)
+
+OpenAPI overlays, including conversational phrasing for each operation.
+
+- [Qualified Com Bot Conversations Api Phrasing Overlay](https://apis.io/overlays/qualified-com/qualified-com-bot-conversations-api-phrasing-overlay/)
+- [Qualified Com Bulk Api Phrasing Overlay](https://apis.io/overlays/qualified-com/qualified-com-bulk-api-phrasing-overlay/)
+- [Qualified Com Cancel Meeting Api Phrasing Overlay](https://apis.io/overlays/qualified-com/qualified-com-cancel-meeting-api-phrasing-overlay/)
+- [Qualified Com Companies Api Phrasing Overlay](https://apis.io/overlays/qualified-com/qualified-com-companies-api-phrasing-overlay/)
+- [Qualified Com Conversations Api Phrasing Overlay](https://apis.io/overlays/qualified-com/qualified-com-conversations-api-phrasing-overlay/)
+- [Qualified Com Emails Api Phrasing Overlay](https://apis.io/overlays/qualified-com/qualified-com-emails-api-phrasing-overlay/)
+- [Qualified Com Enterprise Api Overlay](https://apis.io/overlays/qualified-com/qualified-com-enterprise-api-overlay/)
+- [Qualified Com Gdpr Api Phrasing Overlay](https://apis.io/overlays/qualified-com/qualified-com-gdpr-api-phrasing-overlay/)
+- [Qualified Com Leads Api Phrasing Overlay](https://apis.io/overlays/qualified-com/qualified-com-leads-api-phrasing-overlay/)
+- [Qualified Com Meetings Api Phrasing Overlay](https://apis.io/overlays/qualified-com/qualified-com-meetings-api-phrasing-overlay/)
+- [Qualified Com Messages Api Phrasing Overlay](https://apis.io/overlays/qualified-com/qualified-com-messages-api-phrasing-overlay/)
+- [Qualified Com Rep Conversations Api Phrasing Overlay](https://apis.io/overlays/qualified-com/qualified-com-rep-conversations-api-phrasing-overlay/)
+- [Qualified Com Sessions Api Phrasing Overlay](https://apis.io/overlays/qualified-com/qualified-com-sessions-api-phrasing-overlay/)
+
+#### Security (4)
+
+Authentication, trust centre, and vulnerability disclosure.
+
+- [Qualified Com Authentication](https://apis.io/security/qualified-com/qualified-com-authentication/)
+- [Qualified Com Domain Security](https://apis.io/security/qualified-com/qualified-com-domain-security/)
+- [Qualified Com Trust Center](https://apis.io/security/qualified-com/qualified-com-trust-center/)
+- [Qualified Com Vulnerability Disclosure](https://apis.io/security/qualified-com/qualified-com-vulnerability-disclosure/)
+
+#### OAuth scopes (1)
+
+The permissions the API asks for.
+
+- [Qualified Com Scopes](https://apis.io/scopes/qualified-com/qualified-com-scopes/)
+
+#### Plans and pricing (1)
+
+Published plans, tiers and prices.
+
+- [Qualified Com Plans Pricing](https://apis.io/plans/qualified-com/qualified-com-plans-pricing/)
+
+#### Rate limits (1)
+
+Published request limits.
+
+- [Qualified Com Rate Limits](https://apis.io/rate-limits/qualified-com/qualified-com-rate-limits/)
+
+## Where to find this API
+
+Links to the company's own pages. This repository publishes no copy of their specifications — the canonical document is theirs and lives at the URLs below.
+
+- [Website](https://www.qualified.com/)
+- [Documentation](https://app.qualified.com/docs/api)
+- [API reference](https://app.qualified.com/docs/api)
+- [Pricing](https://www.qualified.com/pricing)
+- [Sign up](https://www.qualified.com/sign-in)
+- [Support](https://university.qualified.com/)
+- [Blog](https://www.qualified.com/plus/blog)
+- [Compliance](https://www.qualified.com/trust)
+- [Trust centre](https://www.qualified.com/trust)
+- [Terms of service](https://www.qualified.com/legal/terms-of-service)
+- [Privacy policy](https://www.qualified.com/legal/privacy)
+- [Status](https://status.qualified.com/)
+
+## API Evangelist rating
+
+**Kin Score 66.9** — exemplar · rubric 0.25.0 · scored 2026-10-23
+
+| Facet | Score |
+|---|---|
+| Discoverability | 73.2 |
+| Contract quality | 49.3 |
+| Contract governance | 18.2 |
+| Operational transparency | 81.6 |
+| Developer ergonomics | 47.0 |
+| Access clarity | 92.1 |
+
+**Agent readiness 31.1** — agent-ready
+
+| Agent-readiness dimension | Result |
+|---|---|
+| Spec Presence | yes |
+| Agentic Access | — |
+| Reversibility Documented | documented (partial credit) |
+| MCP Server | — |
+| Auth Clarity | bearer (partial credit) |
+| Idempotency | — |
+| Error Semantics | verified |
+| OpenAPI Examples | partial |
+| Rate Limit Signal | documented (partial credit) |
+| Event Surface Described | — |
+| Agent Skills | derived (partial credit) |
+| Well Known Catalog | — |
+| Consent Identity | — |
+| Agent Card | — |
+| Dry Run Mode | — |
+| Delegated Identity | — |
+| Protected Resource Metadata | — |
+| Dynamic Client Registration | — |
+| Agentic Commerce | — |
+| Pagination Ratio | partial |
+| Operation Distinctiveness | distinct |
+
+**Regulatory alignment 41.8** — Horizontal (data, software, accessibility, platform)
+
+The rubric is published at [github.com/api-evangelist/kin-score](https://github.com/api-evangelist/kin-score). The per-check breakdown behind these numbers — which checks were earned, partial or missed — along with score history and how this provider compares to its peers, is available at [apis.io/providers/qualified-com/](https://apis.io/providers/qualified-com/).
+
+## How this profile is made
+
+API Evangelist profiles a company's public API surface the way a developer would find it: the website, developer portal and documentation, the specifications it publishes, its public repositories, and its pricing, status and changelog pages. From that it derives the properties above — contracts split per API, workflows, schemas, collections, governance rules, plans and rate limits — and scores them against the published [Kin Score rubric](https://github.com/api-evangelist/kin-score).
+
+The artifacts are published on [APIs.io](https://apis.io), not in this repository. This repository is the public record for Qualified: the place to say something is wrong, missing or out of date, and to ask for a re-score or a removal.
+
+## Open an issue
+
+- **Something about this listing** — a wrong description, a missing API, a stale artifact or a question about the rating: [open an issue on this repository](https://github.com/api-evangelist/qualified-com/issues/new).
+- **A new API, or one that is not in the catalog yet** — [submit it on APIs.io](https://apis.io/add/).
+- **Anything else** — [the APIs.io inbox](https://github.com/api-search/inbox/issues/new) or [info@apievangelist.com](mailto:info@apievangelist.com).
